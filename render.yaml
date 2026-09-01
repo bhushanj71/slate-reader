@@ -1,11 +1,16 @@
+# Slate runs entirely in the browser, so the natural fit on Render is a static
+# site: nothing to keep awake, no cold start. The build step vendors pdf.js out
+# of node_modules and into the published folder.
+#
+# The Express server in server.js still runs the same app and can be deployed as
+# a Node web service instead — see the README.
+
 services:
   - type: web
     name: slate-reader
-    runtime: node
-    plan: free
-    buildCommand: npm ci
-    startCommand: npm start
-    healthCheckPath: /healthz
+    runtime: static
+    buildCommand: npm ci && npm run build:static
+    staticPublishPath: ./public
     envVars:
       - key: NODE_VERSION
         value: "22"

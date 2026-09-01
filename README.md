@@ -31,13 +31,33 @@ Then open http://localhost:3000.
 
 ## Deploying to Render
 
-The repository includes `render.yaml`, so the fastest route is a Blueprint:
+Fastest route: **New → Blueprint**, pick this repository. Render reads
+`render.yaml` and creates a static site.
 
-1. Push this repository to GitHub.
-2. In Render, choose **New → Blueprint** and pick the repository. Render reads
-   `render.yaml` and creates the service.
+### As a static site (recommended)
 
-To set it up by hand instead, create a **Web Service** with:
+Nothing here needs a server at runtime, and a static site on the free plan does
+not spin down between visits.
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm ci && npm run build:static` |
+| Publish directory | `public` |
+
+`npm run build:static` copies the three things pdf.js fetches at runtime — the
+library and its worker, the cmaps, and the standard fonts — out of
+`node_modules` and into `public/vendor`. **Without that build step the page
+loads but no PDF will ever render**, because `/vendor/*` is served from
+`node_modules` by the Express server, and a static host has no `node_modules`.
+
+If Render shows **Not Found**, the publish directory is wrong. It must be
+`public`, the folder that holds `index.html` — not the repository root, and not
+blank. Leave *Root Directory* empty unless the repository is nested.
+
+### As a Node web service
+
+`server.js` serves the same app and adds a health check. Use this if you would
+rather deploy a server, or plan to add an API later.
 
 | Setting | Value |
 | --- | --- |
@@ -46,8 +66,8 @@ To set it up by hand instead, create a **Web Service** with:
 | Start command | `npm start` |
 | Health check path | `/healthz` |
 
-The server binds to `process.env.PORT`, which Render provides. No environment
-variables, database or disk are required.
+It binds to `process.env.PORT`, which Render provides. No environment variables,
+database or disk are required either way.
 
 ## Keyboard
 
