@@ -14,6 +14,7 @@ export class CloudSpeaker {
     this.playing = false;
     this.rate = 1;
     this.voiceId = null;
+    this.delivery = "narration";
     this.onSentence = () => {};
     this.onFinished = () => {};
     this.onTrouble = () => {};
@@ -81,7 +82,7 @@ export class CloudSpeaker {
 
     let url;
     try {
-      url = await this.#clip(sentence.speech || sentence.text);
+      url = await this.#clip(at);
     } catch (err) {
       // One failure is enough: fall back rather than stuttering through a page.
       this.playing = false;
@@ -118,19 +119,30 @@ export class CloudSpeaker {
   }
 
   #prefetch(at) {
-    const next = this.queue[at];
-    if (!next) return;
-    this.#clip(next.speech || next.text).catch(() => { /* it will be retried in turn */ });
+    if (!this.queue[at]) return;
+    this.#clip(at).catch(() => { /* it will be retried in turn */ });
   }
 
-  async #clip(text) {
-    const held = this.clips.get(text);
+  static #say(sentence) {
+    return sentence ? (sentence.speech || sentence.text) : "";
+  }
+
+  async #clip(at) {
+    const text = CloudSpeaker.#say(this.queue[at]);
+    // The neighbouring sentences are sent as context, never spoken. Without
+    // them each sentence is synthesised in isolation and lands flat, which is
+    // most of what makes chunked speech sound like a machine.
+    const previous = CloudSpeaker.#say(this.queue[at - 1]);
+    const next = CloudSpeaker.#say(this.queue[at + 1]);
+
+    const key = `${this.voiceId}|${this.delivery}|${previous}|${text}|${next}`;
+    const held = this.clips.get(key);
     if (held) return held;
 
     const res = await fetch("/api/voice/speak", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, voiceId: this.voiceId })
+      body: JSON.stringify({ text, previous, next, voiceId: this.voiceId, delivery: this.delivery })
     });
 
     if (!res.ok) {
@@ -139,7 +151,7 @@ export class CloudSpeaker {
     }
 
     const url = URL.createObjectURL(await res.blob());
-    this.clips.set(text, url);
+    this.clips.set(key, url);
     if (this.clips.size > CACHE_LIMIT) {
       const oldest = this.clips.keys().next().value;
       URL.revokeObjectURL(this.clips.get(oldest));

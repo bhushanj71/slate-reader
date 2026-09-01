@@ -18,7 +18,15 @@ app.use(compression());
    browser asks this server to speak a sentence; the key never leaves it. */
 
 const KEY = process.env.ELEVENLABS_API_KEY || "";
-const MODEL = process.env.ELEVENLABS_MODEL || "eleven_flash_v2_5";
+
+// Flash is the cheap, fast model and it sounds it. A book is read once and
+// listened to for hours, so the default is the narration model instead.
+const MODELS = {
+  narration: "eleven_multilingual_v2",   // even, warm, predictable over long text
+  expressive: "eleven_v3",               // most human, more variable
+  fast: "eleven_flash_v2_5"              // half the credits, plainly synthetic
+};
+const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL || MODELS.narration;
 
 // This endpoint spends real money and sits on a public URL, so it is bounded
 // in three directions: per request, per caller, and per day for everyone.
@@ -89,7 +97,7 @@ function remember(hash, body) {
 app.get("/api/voice", async (_req, res) => {
   if (!KEY) return res.json({ available: false });
   try {
-    res.json({ available: true, model: MODEL, voices: await voiceList() });
+    res.json({ available: true, model: DEFAULT_MODEL, voices: await voiceList() });
   } catch (err) {
     console.error("[voice]", err.message);
     res.json({ available: false });
@@ -101,6 +109,16 @@ app.post("/api/voice/speak", express.json({ limit: "16kb" }), async (req, res) =
 
   const text = String(req.body?.text || "").trim();
   const voiceId = String(req.body?.voiceId || "");
+
+  // The sentences either side. They are not spoken: the model reads them only
+  // to know where this sentence sits, which is what stops every one of them
+  // starting cold and landing flat — the thing that makes chunked speech sound
+  // like a machine.
+  const before = String(req.body?.previous || "").slice(-500);
+  const after = String(req.body?.next || "").slice(0, 500);
+
+  const model = MODELS[req.body?.delivery] || DEFAULT_MODEL;
+  const withContext = model !== MODELS.expressive;
 
   if (!text) return res.status(400).json({ error: "Nothing to say." });
   if (text.length > MAX_CHARS_PER_REQUEST) {
@@ -118,7 +136,9 @@ app.post("/api/voice/speak", express.json({ limit: "16kb" }), async (req, res) =
   const voice = voices.find(v => v.id === voiceId) || voices[0];
   if (!voice) return res.status(502).json({ error: "No voices are available." });
 
-  const hash = crypto.createHash("sha256").update(`${MODEL}:${voice.id}:${text}`).digest("hex");
+  const hash = crypto.createHash("sha256")
+    .update(`${model}:${voice.id}:${before}|${text}|${after}`)
+    .digest("hex");
   const cached = audio.get(hash);
   if (cached) {
     res.set("content-type", "audio/mpeg").set("x-slate-cache", "hit");
@@ -130,14 +150,22 @@ app.post("/api/voice/speak", express.json({ limit: "16kb" }), async (req, res) =
 
   try {
     const upstream = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voice.id}?output_format=mp3_44100_64`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voice.id}?output_format=mp3_44100_128`,
       {
         method: "POST",
         headers: { "xi-api-key": KEY, "content-type": "application/json" },
         body: JSON.stringify({
           text,
-          model_id: MODEL,
-          voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0, use_speaker_boost: true }
+          model_id: model,
+          // v3 refuses the surrounding text outright; it carries its own
+          // expressiveness instead, and only accepts stability in steps.
+          previous_text: withContext ? before || undefined : undefined,
+          next_text: withContext ? after || undefined : undefined,
+          // Lower stability lets the reading breathe; too low and it wanders
+          // between sentences. A little style keeps it off a monotone.
+          voice_settings: withContext
+            ? { stability: 0.42, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true }
+            : { stability: 0.5, similarity_boost: 0.8, use_speaker_boost: true }
         })
       }
     );
@@ -175,5 +203,5 @@ app.use((_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Slate is reading on http://localhost:${PORT}`);
-  console.log(KEY ? `ElevenLabs voice ready (${MODEL})` : "Device voices only (no ELEVENLABS_API_KEY set)");
+  console.log(KEY ? `ElevenLabs voice ready (${DEFAULT_MODEL})` : "Device voices only (no ELEVENLABS_API_KEY set)");
 });

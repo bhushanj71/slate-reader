@@ -40,7 +40,7 @@ const prefs = Object.assign(
     // Slightly under a natural pace: PDF prose is denser than speech.
     rate: 0.95, voiceURI: null, openFull: true, flash: false,
     // Left unset until the server says whether a studio voice exists.
-    voiceSource: null, cloudVoiceId: null
+    voiceSource: null, cloudVoiceId: null, delivery: "narration"
   },
   loadPrefs()
 );
@@ -675,6 +675,14 @@ function openSettings() {
   }
 
   if (prefs.voiceSource === "cloud" && state.cloud.available) {
+    body.append(segmented("Delivery",
+      [["narration", "Narration"], ["expressive", "Expressive"], ["fast", "Fast"]],
+      prefs.delivery, v => {
+        prefs.delivery = v;
+        applyPrefs();
+        openSettings();
+        if (state.listening) startListening(engine().index);
+      }));
     body.append(voicePicker());
   } else if (speaker) {
     const automatic = bestVoice(speaker.voices());
@@ -899,6 +907,7 @@ function applyPrefs() {
   }
   cloud.rate = prefs.rate;
   cloud.voiceId = prefs.cloudVoiceId || state.cloud.voices[0]?.id || null;
+  cloud.delivery = prefs.delivery;
   savePrefs(prefs);
 }
 

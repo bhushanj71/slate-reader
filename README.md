@@ -127,8 +127,22 @@ the account actually owns can be requested, so the endpoint cannot be used as an
 open proxy. If the budget runs out, the network drops, or the browser refuses to
 autoplay, the reading continues in the device voice from the same sentence.
 
-Reading a book this way is not free: a page of dense prose is roughly 2–3k
-characters.
+Three things decide whether it sounds like a person, and all three are set here:
+
+- **The model.**  reads long text evenly and is the default.
+  **Expressive** () is more alive and less predictable; **Fast**
+  () costs half the credits and sounds like it. Chosen under
+  **Panel → Delivery**.
+- **Context.** Each sentence is sent with the ones either side as  and
+  . They are never spoken — the model reads them only to know where the
+  sentence sits. Without this, every sentence is synthesised cold and lands flat, which
+  is most of what makes chunked speech sound mechanical. (v3 does not accept them, and
+  is sent without.)
+- **Settings.** Stability 0.42 with a little style: low enough to breathe, high enough
+  not to wander between sentences. Audio comes back at 128 kbps rather than 64.
+
+Reading a book this way is not free: a page of dense prose is roughly 2–3k characters,
+and the narration and expressive models cost twice what Fast does.
 
 ### Getting a better voice on the device
 
