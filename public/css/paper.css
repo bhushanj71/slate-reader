@@ -1,0 +1,626 @@
+/* ── Slate ────────────────────────────────────────────────────────────
+   A simulated electrophoretic panel. Rules of the house:
+   no colour, no shadows, no radius, no motion except the refresh flash. */
+
+:root {
+  --bezel: #d7d4cd;
+  --paper: #f1efea;
+  --paper-lit: #f8f7f3;
+  --ink: #22211d;
+  --ink-soft: #56544c;
+  --ink-faint: #8e8b81;
+  --rule: #c7c3b9;
+  --canvas-filter: grayscale(1) contrast(1.04) brightness(1.01);
+  --sharpen: 1;
+
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --serif: "Literata", "Iowan Old Style", Georgia, "Times New Roman", serif;
+
+  --rail-h: 3.25rem;
+  --status-h: 2.25rem;
+}
+
+[data-tone="bleached"] {
+  --bezel: #cfcfcf;
+  --paper: #fbfbfa;
+  --paper-lit: #ffffff;
+  --ink: #16160f;
+  --ink-soft: #4a4a44;
+  --ink-faint: #86867e;
+  --rule: #d3d3cd;
+  --canvas-filter: grayscale(1) contrast(1.18) brightness(1.03);
+}
+
+[data-tone="night"] {
+  --bezel: #0e0e10;
+  --paper: #1b1b1d;
+  --paper-lit: #232325;
+  --ink: #d2cfc7;
+  --ink-soft: #9d9a92;
+  --ink-faint: #6d6b64;
+  --rule: #3a3a3d;
+  --canvas-filter: grayscale(1) contrast(1.02) invert(1) brightness(0.92);
+}
+
+* { box-sizing: border-box; }
+
+/* Several panes below are flex containers, and a class beats the user-agent
+   rule for [hidden]. Views are toggled with .hidden, so say it once, loudly. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bezel);
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The panel is exactly the screen and never scrolls as a page; what scrolls is
+   the shelf or the stage inside it, the way a device does it. */
+body { overscroll-behavior: none; overflow: hidden; }
+
+/* The panel itself, held in a bezel. */
+.device {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 68rem;
+  height: 100dvh;
+  margin-inline: auto;
+  background: var(--paper);
+  border-inline: 1px solid var(--rule);
+  overflow: clip;
+}
+
+/* Microcapsule grain. Costs nothing, sells everything. */
+.device::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: .5;
+  mix-blend-mode: multiply;
+  background-image: url("/img/grain.svg");
+}
+
+[data-tone="night"] .device::after { mix-blend-mode: screen; opacity: .28; }
+
+/* ── Status bar ─────────────────────────────────────────────────── */
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: var(--status-h);
+  padding-inline: clamp(.85rem, 3vw, 1.6rem);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: .625rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+}
+
+.mark { color: var(--ink); letter-spacing: .34em; }
+
+.statusbar__doc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  letter-spacing: .12em;
+}
+
+.statusbar__right { display: flex; gap: .6rem; align-items: center; }
+
+.chip { white-space: nowrap; }
+
+.chip--live::before {
+  content: "";
+  display: inline-block;
+  width: .42em;
+  height: .42em;
+  margin-right: .5em;
+  background: var(--ink);
+  vertical-align: middle;
+  animation: pulse 1.6s steps(2, end) infinite;
+}
+
+@keyframes pulse { 50% { opacity: .15; } }
+
+/* ── Panel body ─────────────────────────────────────────────────── */
+
+.panel { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+
+.shelf { flex: 1; overflow-y: auto; }
+
+.shelf__inner {
+  max-width: 42rem;
+  margin-inline: auto;
+  padding: clamp(2.5rem, 8vw, 5rem) clamp(1.25rem, 5vw, 2rem) 4rem;
+}
+
+.masthead {
+  margin: 0;
+  font-size: clamp(2.5rem, 8vw, 4.25rem);
+  font-weight: 600;
+  line-height: .96;
+  letter-spacing: -.025em;
+}
+
+.masthead em { font-style: italic; font-weight: 400; color: var(--ink-soft); }
+
+.lede {
+  max-width: 44ch;
+  margin: 1.75rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.drop {
+  margin-top: 2.5rem;
+  padding: 2rem 1.5rem;
+  border: 1px dashed var(--rule);
+  text-align: center;
+  transition: background .12s linear;
+}
+
+.drop.is-over { background: var(--paper-lit); border-style: solid; border-color: var(--ink); }
+
+.drop__hint {
+  margin: .9rem 0 0;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ── Table of contents, with leaders ────────────────────────────── */
+
+.rule-heading {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  margin: 0 0 1rem;
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 500;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.rule-heading::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--rule);
+}
+
+.contents { margin-top: 3rem; }
+
+.toc { margin: 0; padding: 0; list-style: none; }
+
+.toc li { display: flex; align-items: baseline; }
+
+.toc__row {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+  gap: .55rem;
+  padding: .7rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toc li { border-bottom: 1px solid var(--rule); }
+
+.toc__row:hover .toc__title,
+.toc__row:focus-visible .toc__title { text-decoration: underline; text-underline-offset: .22em; }
+
+.toc__title {
+  font-size: 1.0625rem;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.toc__leader { flex: 1; border-bottom: 1px dotted var(--rule); transform: translateY(-.28em); }
+
+.toc__meta {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .08em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.toc__drop {
+  border: 0;
+  background: none;
+  padding: .2rem .35rem;
+  margin-left: .35rem;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.toc__drop:hover { color: var(--ink); }
+
+/* ── Legend ─────────────────────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 3rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: .6875rem;
+  color: var(--ink-faint);
+}
+
+.legend div { display: flex; align-items: center; gap: .55rem; }
+.legend dt { border: 1px solid var(--rule); padding: .1rem .4rem; color: var(--ink-soft); }
+.legend dd { margin: 0; letter-spacing: .06em; }
+
+/* ── Reader ─────────────────────────────────────────────────────── */
+
+.reader { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.reader__stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: clamp(.5rem, 2vw, 1.25rem);
+}
+
+/* An open book: two leaves against a single hairline gutter. */
+.spread {
+  display: flex;
+  margin: auto;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.leaf {
+  position: relative;
+  isolation: isolate;
+  background: var(--paper-lit);
+}
+
+/* No max-width here: the canvas is rendered to fit, and the text layer has to
+   line up with it exactly. Letting CSS shrink the canvas would break that. */
+.leaf canvas { display: block; filter: var(--canvas-filter) contrast(var(--sharpen)); }
+
+/* Ghosting: the residue a real panel leaves behind after a refresh. */
+.leaf canvas.ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: .055;
+  pointer-events: none;
+  filter: none;
+}
+
+[data-tone="night"] .leaf canvas.ghost { opacity: .09; }
+
+/* The strip along the foot of the panel, the way a reader always has one. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .5rem clamp(.85rem, 3vw, 1.6rem);
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: .625rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+}
+
+.progress__track { flex: 1; height: 1px; background: var(--rule); }
+.progress__fill { display: block; height: 3px; margin-top: -1px; background: var(--ink); }
+.progress__label, .progress__pct { white-space: nowrap; }
+
+.textlayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.textlayer span {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0 0;
+  color: transparent;
+  cursor: text;
+}
+
+.textlayer span::selection { background: rgba(34, 33, 29, .22); }
+
+/* The spoken line inverts, the way a real panel inverts a selection. */
+.textlayer span.lit { background: rgba(34, 33, 29, .18); }
+
+@supports (mix-blend-mode: difference) {
+  .textlayer span.lit { background: #fff; mix-blend-mode: difference; }
+}
+
+/* The whole panel is the control surface, as on a real reader: the edges turn
+   pages, the middle shows and hides the chrome. */
+.tapzone {
+  position: absolute;
+  top: 0;
+  bottom: 2.1rem;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tapzone--prev { left: 0; width: 22%; }
+.tapzone--next { right: 0; width: 22%; }
+.tapzone--mid { left: 22%; right: 22%; cursor: default; }
+
+/* Selecting text matters more than tap-to-turn once there is a mouse. */
+@media (hover: hover) and (pointer: fine) {
+  .tapzone--prev, .tapzone--next { width: 8%; }
+  .tapzone--mid { display: none; }
+}
+
+.device.is-bare .rail { display: none; }
+
+.spinner {
+  position: absolute;
+  inset-inline: 0;
+  top: 1rem;
+  margin: 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: .625rem;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ── Controls ───────────────────────────────────────────────────── */
+
+.rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+  min-height: var(--rail-h);
+  padding: .5rem clamp(.75rem, 3vw, 1.6rem);
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+  flex: 0 0 auto;
+}
+
+.rail__group { display: flex; align-items: center; gap: .4rem; }
+
+.btn {
+  padding: .45rem .7rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .1s linear, color .1s linear, border-color .1s linear;
+}
+
+.btn:hover { border-color: var(--ink); color: var(--ink); }
+
+.btn:active, .btn.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+.btn--primary { border-color: var(--ink); color: var(--ink); }
+
+.btn--ghost { border-color: transparent; }
+
+.btn[disabled] { opacity: .35; cursor: default; }
+.btn[disabled]:hover { border-color: var(--rule); color: var(--ink-soft); }
+
+:where(button, input, select, a):focus-visible {
+  outline: 2px dotted var(--ink);
+  outline-offset: 2px;
+}
+
+.pagejump {
+  display: flex;
+  align-items: baseline;
+  gap: .3rem;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  color: var(--ink-faint);
+}
+
+.pagejump input {
+  width: 3.2rem;
+  padding: .4rem .3rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+}
+
+/* ── Drawer ─────────────────────────────────────────────────────── */
+
+.drawer {
+  position: absolute;
+  z-index: 30;
+  inset-inline: 0;
+  bottom: 0;
+  max-height: min(70%, 34rem);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem clamp(1rem, 4vw, 2rem) 1.25rem;
+  background: var(--paper);
+  border-top: 1px solid var(--ink);
+}
+
+.drawer__head { display: flex; align-items: center; gap: 1rem; }
+.drawer__head .rule-heading { flex: 1; margin-bottom: 0; }
+.drawer__body { overflow-y: auto; margin-top: 1rem; }
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .7rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.field > span:first-child { width: 6.5rem; flex: 0 0 auto; }
+.field select, .field input[type="range"] { flex: 1; min-width: 0; }
+
+.field select {
+  padding: .35rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: .6875rem;
+}
+
+.field input[type="range"] { accent-color: var(--ink); }
+
+.segmented { display: flex; gap: .3rem; flex: 1; }
+
+.marklist { margin: 0; padding: 0; list-style: none; }
+
+.marklist li {
+  display: flex;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .65rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.marklist button.mark-open {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: .95rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.marklist .mark-page {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.mark-snip { display: block; color: var(--ink-faint); font-size: .8125rem; margin-top: .15rem; }
+
+.empty {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 1rem 0;
+}
+
+/* ── Toast + refresh flash ──────────────────────────────────────── */
+
+.toast {
+  position: absolute;
+  z-index: 35;
+  left: 50%;
+  bottom: 2.75rem;                 /* inside the panel: clears the progress strip,
+                                      and never depends on how tall the rail is */
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  max-width: calc(100% - 2rem);
+  padding: .55rem .85rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .08em;
+}
+
+.toast button {
+  border: 1px solid var(--paper);
+  background: none;
+  color: var(--paper);
+  font: inherit;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: .2rem .45rem;
+  cursor: pointer;
+}
+
+/* The signature: a panel refresh between pages. */
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  background: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flash.is-on { animation: refresh 180ms linear 1; }
+
+@keyframes refresh {
+  0%, 42% { opacity: .92; }
+  43%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash.is-on { animation: none; }
+  .chip--live::before { animation: none; }
+}
+
+@media (max-width: 40rem) {
+  .rail { justify-content: center; }
+  .rail__group--listen { order: -1; width: 100%; justify-content: center; }
+  .statusbar__doc { display: none; }
+}

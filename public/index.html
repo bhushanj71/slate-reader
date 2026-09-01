@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slate — an e-ink reader for PDFs</title>
+<meta name="description" content="Read PDFs on a paper-ink display, listen to them aloud, and pick up exactly where you stopped.">
+<meta name="theme-color" content="#f1efea">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/paper.css">
+</head>
+<body>
+<div class="device" id="device">
+
+  <header class="statusbar">
+    <span class="mark">Slate</span>
+    <span class="statusbar__doc" id="statusDoc">Library</span>
+    <span class="statusbar__right">
+      <span class="chip chip--live" id="statusListening" hidden>reading aloud</span>
+      <span class="chip" id="statusPage" hidden></span>
+    </span>
+  </header>
+
+  <main class="panel" id="panel">
+
+    <!-- ── Shelf ───────────────────────────────────────────── -->
+    <section class="shelf" id="shelfView">
+      <div class="shelf__inner">
+        <h1 class="masthead">A reader that<br><em>holds still.</em></h1>
+        <p class="lede">Slate opens a PDF as a book — facing pages, one spread at a time, no scrolling — on a simulated electrophoretic panel. No glow, no colour, and only the two marks a real panel leaves: the refresh flash, and the ghost of the page before. It reads aloud when your eyes are done, and it always remembers the line you stopped on.</p>
+
+        <div class="drop" id="drop">
+          <button class="btn btn--primary" id="openBtn" type="button">Open a PDF</button>
+          <p class="drop__hint">or drop a file onto the panel</p>
+          <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+        </div>
+
+        <div class="contents" id="contents" hidden>
+          <h2 class="rule-heading"><span>On the shelf</span></h2>
+          <ol class="toc" id="tocList"></ol>
+        </div>
+
+        <dl class="legend">
+          <div><dt>Space</dt><dd>read aloud / pause</dd></div>
+          <div><dt>← →</dt><dd>turn the page</dd></div>
+          <div><dt>B</dt><dd>drop a bookmark</dd></div>
+          <div><dt>H</dt><dd>hide the controls</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ── Reader ──────────────────────────────────────────── -->
+    <section class="reader" id="readerView" hidden>
+      <div class="reader__stage" id="stage">
+        <div class="spread" id="spread"></div>
+      </div>
+      <button class="tapzone tapzone--prev" id="tapPrev" type="button" aria-label="Previous page"></button>
+      <button class="tapzone tapzone--mid" id="tapMid" type="button" aria-label="Show or hide the controls"></button>
+      <button class="tapzone tapzone--next" id="tapNext" type="button" aria-label="Next page"></button>
+      <p class="spinner" id="spinner" hidden>rendering</p>
+      <div class="progress">
+        <span class="progress__label" id="progressLabel"></span>
+        <span class="progress__track"><i class="progress__fill" id="progressFill"></i></span>
+        <span class="progress__pct" id="progressPct"></span>
+      </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </main>
+
+  <!-- ── Drawer ────────────────────────────────────────────── -->
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer__head">
+      <h2 class="rule-heading"><span id="drawerTitle">Bookmarks</span></h2>
+      <button class="btn btn--ghost" id="drawerClose" type="button">Close</button>
+    </div>
+    <div class="drawer__body" id="drawerBody"></div>
+  </div>
+
+  <!-- ── Rail ──────────────────────────────────────────────── -->
+  <footer class="rail" id="rail" hidden>
+    <div class="rail__group">
+      <button class="btn" id="backBtn" type="button" title="Back to the shelf">Shelf</button>
+      <button class="btn" id="prevBtn" type="button" title="Previous page (←)">Back</button>
+      <label class="pagejump">
+        <input type="text" id="pageInput" inputmode="numeric" autocomplete="off" aria-label="Page number">
+        <span id="pageTotal">/ 0</span>
+      </label>
+      <button class="btn" id="nextBtn" type="button" title="Next page (→)">Next</button>
+    </div>
+
+    <div class="rail__group rail__group--listen">
+      <button class="btn btn--primary" id="playBtn" type="button" title="Read aloud (Space)">Read aloud</button>
+      <button class="btn" id="stopBtn" type="button" hidden>Stop</button>
+    </div>
+
+    <div class="rail__group">
+      <button class="btn" id="markBtn" type="button" title="Bookmark this page (B)">Bookmark</button>
+      <button class="btn" id="marksBtn" type="button">Marks</button>
+      <button class="btn" id="settingsBtn" type="button" title="Display and voice">Panel</button>
+    </div>
+  </footer>
+
+  <div class="flash" id="flash" aria-hidden="true"></div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
