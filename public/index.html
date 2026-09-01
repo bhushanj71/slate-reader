@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Slate — an e-ink reader for PDFs</title>
 <meta name="description" content="Read PDFs on a paper-ink display, listen to them aloud, and pick up exactly where you stopped.">
-<meta name="theme-color" content="#f1efea">
+<meta name="theme-color" content="#f4f1e8">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/paper.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
     <span class="mark">Slate</span>
     <span class="statusbar__doc" id="statusDoc">Library</span>
     <span class="statusbar__right">
-      <span class="chip chip--live" id="statusListening" hidden>reading aloud</span>
+      <span class="chip chip--live" id="statusListening" hidden><span class="chip__dot" aria-hidden="true">●</span>Reading aloud</span>
       <span class="chip" id="statusPage" hidden></span>
     </span>
   </header>
@@ -29,8 +29,9 @@
     <!-- ── Shelf ───────────────────────────────────────────── -->
     <section class="shelf" id="shelfView">
       <div class="shelf__inner">
-        <h1 class="masthead">A reader<br>that holds<br>still</h1>
-        <p class="lede">Slate opens a PDF as a book — facing pages, one spread at a time, no scrolling — on a simulated electrophoretic panel. Black ink on grey paper, no glow and no colour, with the leaf turning on its spine and leaving the faint ghost a real panel leaves behind. It reads aloud in a human voice when your eyes are done, and it always remembers the line you stopped on.</p>
+        <p class="eyebrow">The library</p>
+        <h1 class="masthead">A reader that holds still</h1>
+        <p class="lede">Slate opens a PDF as a book: facing pages, one spread at a time, with no scrolling and nothing to watch. Ink on warm paper, no glow and no colour — pages change the way a panel changes, the old image thinning out and the new one simply being there. It reads aloud in a human voice when your eyes are tired, and it always reopens on the line you stopped at.</p>
 
         <div class="drop" id="drop">
           <button class="btn btn--primary" id="openBtn" type="button">Open a PDF</button>
@@ -94,13 +95,17 @@
   <!-- ── Rail ──────────────────────────────────────────────── -->
   <footer class="rail" id="rail" hidden>
     <div class="rail__group">
-      <button class="btn" id="backBtn" type="button" title="Back to the shelf">Shelf</button>
-      <button class="btn" id="prevBtn" type="button" title="Previous page (←)">Back</button>
+      <button class="btn" id="backBtn" type="button" title="Back to the shelf">Library</button>
+      <button class="btn btn--icon" id="prevBtn" type="button" title="Previous page (←)" aria-label="Previous page">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5 8 12l7 7"/></svg>
+      </button>
       <label class="pagejump">
         <input type="text" id="pageInput" inputmode="numeric" autocomplete="off" aria-label="Page number">
         <span id="pageTotal">/ 0</span>
       </label>
-      <button class="btn" id="nextBtn" type="button" title="Next page (→)">Next</button>
+      <button class="btn btn--icon" id="nextBtn" type="button" title="Next page (→)" aria-label="Next page">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
     </div>
 
     <div class="rail__group rail__group--listen">

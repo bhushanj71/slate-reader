@@ -1,10 +1,11 @@
 # Slate
 
-A web PDF reader with the manners of an e-ink device, drawn from a photograph of a real
-one: true black on cool grey paper, heavy grotesque capitals, monospace everywhere else,
-one stroke weight, and no colour at all. Where a grey is wanted the pixels are dithered,
-because a panel has no mid-tones to give. It reads pages aloud in a human voice, lights
-up the sentence being spoken, and always reopens on the line you stopped on.
+A web PDF reader built to an E-Ink-first design system, so that on any display — LCD,
+OLED or otherwise — it reads as though it belongs on a Kindle or a Kobo. Warm paper
+rather than white, charcoal rather than black, Literata for reading and IBM Plex Sans for
+the controls. Flat surfaces, borders instead of shadows, one muted accent, and no
+gradients, blur, glow or motion beyond a brief refresh. It reads pages aloud in a human
+voice, lights up the sentence being spoken, and always reopens on the line you stopped on.
 
 ## What it does
 
@@ -21,11 +22,11 @@ up the sentence being spoken, and always reopens on the line you stopped on.
 - **Remembers the checkpoint** for every document: page, scroll position and sentence.
   Reopen a file and it resumes there; a toast offers to start over instead.
 - **Bookmarks** any page, with the first line of the page as its label.
-- **Turns leaves, not slides.** The outgoing spread is copied and laid over the new one
-  while it is drawn, so nothing blank is ever on screen between two pages; the copy then
-  pivots on the spine and leaves the faint ghost a panel leaves behind. The hard refresh
-  flash a real panel does is still there under **Panel → Refresh flash**, off by default
-  because it fights the turn.
+- **Changes pages the way a panel does.** The outgoing spread is copied and laid over the
+  new one while it is drawn, so nothing blank is ever on screen; the copy then thins out
+  over 200ms and the new page is simply there. No flip, no slide, nothing to sit and
+  watch. The hard clearing flash a panel does is under **Panel → Refresh flash**, off by
+  default. A faint ghost of the previous page is left behind, as a real panel leaves one.
 - **Opens full screen**, so the book has the whole display and nothing else does. The
   Fullscreen API is used where it is allowed and the page fills the window regardless,
   which is what makes this work on an iPhone, where a page cannot request fullscreen.
@@ -140,7 +141,7 @@ can be chosen by hand under **Panel → Voice**.
 ```
 server.js                 Express: serves public/, /healthz, and the voice proxy
 public/index.html         The device
-public/css/paper.css      The panel: tokens, chrome, the leaf turn
+public/css/paper.css      The design system: tokens, chrome, the refresh
 public/js/app.js          Rendering, paging, checkpoints, bookmarks, settings
 public/js/tts.js          Sentence splitting, the speech queue and its pauses
 public/js/speech-text.js  Typeset text turned into words a voice can say

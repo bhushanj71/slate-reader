@@ -81,9 +81,7 @@ async function refreshShelf() {
     open.innerHTML =
       `<span class="toc__title"></span><span class="toc__leader"></span><span class="toc__meta"></span>`;
     open.querySelector(".toc__title").textContent = row.title;
-    open.querySelector(".toc__meta").textContent = row.pages
-      ? `p. ${at.page} / ${row.pages}`
-      : "unread";
+    open.querySelector(".toc__meta").textContent = readingMark(row, at);
     open.addEventListener("click", () => openStored(row.id));
 
     const drop = document.createElement("button");
@@ -100,6 +98,15 @@ async function refreshShelf() {
     li.append(open, drop);
     return li;
   }));
+}
+
+/** Where a book stands, said with a symbol first so it does not depend on
+ *  colour or on the reader noticing a shade. */
+function readingMark(row, at) {
+  if (!row.pages) return "○ Unread";
+  if (at.page >= row.pages) return "✓ Finished";
+  if (at.page > 1) return `● Page ${at.page} of ${row.pages}`;
+  return `○ ${row.pages} pages`;
 }
 
 async function openStored(id) {
@@ -219,7 +226,6 @@ async function go(n, { turn = true, scrollTop = 0 } = {}) {
   state.twoUp = twoUpWanted();
   const left = leftLeafFor(Math.min(Math.max(Math.round(n) || 1, 1), state.pages));
   const numbers = leavesOpenAt(left);
-  const direction = left >= state.page ? 1 : -1;
   state.page = left;
   state.showing = numbers;
 
@@ -285,7 +291,7 @@ async function go(n, { turn = true, scrollTop = 0 } = {}) {
 
   el.spinner.hidden = true;
   el.stage.scrollTop = scrollTop || 0;
-  turnSpread(outgoing, direction);
+  turnSpread(outgoing);
   if (residue.length) layGhosts(leaves, residue);
   if (turn && prefs.flash) refreshFlash();
   checkpoint();
@@ -402,20 +408,16 @@ function liftSpread() {
   return copy;
 }
 
-/** Turn the lifted copy away: the leading leaf pivots on the spine, the other
- *  settles out beneath it. */
-function turnSpread(copy, direction) {
+/**
+ * Let the lifted copy go the way a panel changes: the old image thins out, the
+ * new page is already beneath it, and the screen goes still. No flip, no slide,
+ * and nothing to sit and watch.
+ */
+function turnSpread(copy) {
   if (!copy) return;
-  const sheets = [...copy.children];
-  const leading = direction >= 0 ? sheets[sheets.length - 1] : sheets[0];
-
-  for (const sheet of sheets) {
-    if (sheet === leading) sheet.classList.add(direction >= 0 ? "is-turning" : "is-turning-back");
-    else sheet.classList.add("is-settling");
-  }
-
-  leading.addEventListener("animationend", () => copy.remove(), { once: true });
-  setTimeout(() => copy.remove(), 700);   // in case the animation never runs
+  copy.classList.add("is-refreshing");
+  copy.addEventListener("animationend", () => copy.remove(), { once: true });
+  setTimeout(() => copy.remove(), 500);   // in case the animation never runs
 }
 
 function dropSpread(copy) {
