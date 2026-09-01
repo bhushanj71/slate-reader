@@ -129,12 +129,12 @@ autoplay, the reading continues in the device voice from the same sentence.
 
 Three things decide whether it sounds like a person, and all three are set here:
 
-- **The model.**  reads long text evenly and is the default.
-  **Expressive** () is more alive and less predictable; **Fast**
-  () costs half the credits and sounds like it. Chosen under
+- **The model.** `eleven_multilingual_v2` reads long text evenly and is the default.
+  **Expressive** (`eleven_v3`) is more alive and less predictable; **Fast**
+  (`eleven_flash_v2_5`) costs half the credits and sounds like it. Chosen under
   **Panel → Delivery**.
-- **Context.** Each sentence is sent with the ones either side as  and
-  . They are never spoken — the model reads them only to know where the
+- **Context.** Each sentence is sent with the ones either side as `previous_text` and
+  `next_text`. They are never spoken — the model reads them only to know where the
   sentence sits. Without this, every sentence is synthesised cold and lands flat, which
   is most of what makes chunked speech sound mechanical. (v3 does not accept them, and
   is sent without.)
