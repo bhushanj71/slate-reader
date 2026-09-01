@@ -8,13 +8,20 @@ aloud, lights up the sentence being spoken, and always reopens on the line you s
 
 - **Reads PDFs** with [pdf.js](https://mozilla.github.io/pdf.js/), rendered to a canvas
   passed through a greyscale/contrast filter so it looks printed rather than backlit.
-- **Reads them aloud** using the browser's own speech voices. Text is split into
-  sentences, spoken one at a time, and the matching words on the page invert as they
-  are read — the way a real panel inverts a selection. It turns the page by itself and
-  keeps going.
+- **Reads them aloud** like a person, not a screen reader. A PDF is typeset for eyes,
+  so the text is rewritten for a voice before it is spoken: ligatures and words broken
+  across lines are repaired, `Fig. 4` becomes "Figure 4" and `e.g.` becomes "for
+  example", bracketed citations and URLs stop being read out, and bare page numbers and
+  leader dots are skipped. It rests between sentences, longer between paragraphs, and
+  longer still after a heading — which it finds by watching the type size, since nothing
+  in the extracted text says where one is. The matching words invert on the page as they
+  are read, the way a real panel inverts a selection, and it turns the page by itself.
 - **Remembers the checkpoint** for every document: page, scroll position and sentence.
   Reopen a file and it resumes there; a toast offers to start over instead.
 - **Bookmarks** any page, with the first line of the page as its label.
+- **Opens full screen**, so the book has the whole display and nothing else does. The
+  Fullscreen API is used where it is allowed and the page fills the window regardless,
+  which is what makes this work on an iPhone, where a page cannot request fullscreen.
 - **Three panel tones** — Paper, Bleached, Night ink — plus sharpen, fit and text size.
 
 Files never leave the browser. PDFs are held in IndexedDB and checkpoints in
@@ -74,6 +81,8 @@ database or disk are required either way.
 | `←` `→` (or `j` `k`) | Turn the page |
 | `Space` | Read aloud / pause |
 | `B` | Bookmark this page |
+| `F` | Full screen |
+| `H` | Hide the controls |
 | `Esc` | Close the drawer |
 
 ## Browser support
@@ -82,6 +91,15 @@ Rendering works anywhere pdf.js does. Reading aloud uses the Web Speech API — 
 in Chrome, Edge and Safari; Firefox needs a system speech service installed. Where no
 voices exist, the listening controls explain themselves and everything else still works.
 
+### Getting a better voice
+
+How human it sounds depends on which voices the machine has, not on this app. Slate
+scores what the browser offers and picks the most natural, preferring neural voices and
+skipping the old formant ones, but it can only choose from what is installed. On Windows,
+**Settings → Accessibility → Narrator → Add natural voices** installs voices in a
+different class from the default set; Chrome and Edge also offer cloud voices. Any voice
+can be chosen by hand under **Panel → Voice**.
+
 ## Layout
 
 ```
@@ -89,7 +107,8 @@ server.js                 Express: serves public/, plus /healthz
 public/index.html         The device
 public/css/paper.css      The panel: tokens, chrome, refresh flash
 public/js/app.js          Rendering, paging, checkpoints, bookmarks, settings
-public/js/tts.js          Sentence splitting and the speech queue
+public/js/tts.js          Sentence splitting, the speech queue and its pauses
+public/js/speech-text.js  Typeset text turned into words a voice can say
 public/js/store.js        IndexedDB shelf + localStorage checkpoints
 public/js/keep-drawing.js Keeps pdf.js drawing while the tab is hidden
 public/vendor/            pdf.js, committed so public/ can be published as-is

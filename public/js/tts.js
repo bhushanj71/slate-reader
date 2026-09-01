@@ -1,5 +1,8 @@
 // Reading aloud. The browser supplies the voice; this file supplies the
-// sentences and keeps the queue honest across pages.
+// sentences, the breathing room between them, and a queue that survives a page
+// turn.
+
+import { forSpeech, worthSaying } from "/js/speech-text.js";
 
 const ABBREV = new Set([
   "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "fig", "eq", "no", "vol",
@@ -9,10 +12,14 @@ const ABBREV = new Set([
 
 const HARD_CAP = 420; // Chrome drops utterances that run much past this.
 
+// How long to rest after a sentence, in milliseconds, before the next one.
+const REST = { sentence: 170, heading: 420, paragraph: 520 };
+
 /**
- * Split a page into sentences, keeping each one's character range so the
- * reader can light up the matching text on the page.
- * @returns {{start:number, end:number, text:string}[]}
+ * Split a page into sentences, keeping each one's character range so the reader
+ * can light up the matching text on the page, the words to say for it, and how
+ * long to rest afterwards.
+ * @returns {{start:number, end:number, text:string, speech:string, rest:number}[]}
  */
 export function splitSentences(raw) {
   const out = [];
@@ -20,7 +27,8 @@ export function splitSentences(raw) {
 
   const push = (from, to) => {
     const text = clean(raw.slice(from, to));
-    if (speakable(text)) out.push({ start: from, end: to, text });
+    const speech = forSpeech(raw.slice(from, to));
+    if (worthSaying(speech)) out.push({ start: from, end: to, text, speech, rest: REST.sentence });
   };
 
   for (let i = 0; i < raw.length; i++) {
@@ -52,7 +60,25 @@ export function splitSentences(raw) {
   }
 
   push(start, raw.length);
+
+  // A reader rests longer between paragraphs than between sentences, and longer
+  // still after a heading, which is what tells you a heading was one.
+  for (const sentence of out) {
+    const breaks = blankLinesAfter(raw, sentence.end);
+    const unpunctuated = !/[.!?:;]$/.test(sentence.text);
+    if (breaks >= 2) sentence.rest = REST.paragraph;
+    else if (breaks === 1 && unpunctuated && sentence.text.length < 70) sentence.rest = REST.heading;
+  }
+
   return out;
+}
+
+function blankLinesAfter(raw, end) {
+  let newlines = 0;
+  for (let i = end; i < raw.length && /\s/.test(raw[i]); i++) {
+    if (raw[i] === "\n") newlines++;
+  }
+  return newlines;
 }
 
 function isAbbreviation(raw, dot) {
@@ -70,9 +96,6 @@ function clean(text) {
     .trim();
 }
 
-function speakable(text) {
-  return text.length > 1 && /[A-Za-z0-9]/.test(text);
-}
 
 /** A queue of sentences read one at a time, so a page turn can interrupt it. */
 export class Speaker {
@@ -86,6 +109,7 @@ export class Speaker {
     this.onSentence = () => {};
     this.onFinished = () => {};
     this.keepalive = null;
+    this.resting = null;
   }
 
   static get supported() {
@@ -135,22 +159,26 @@ export class Speaker {
     }
 
     const at = this.index;
-    const utter = new SpeechSynthesisUtterance(this.queue[at].text);
+    const sentence = this.queue[at];
+    const utter = new SpeechSynthesisUtterance(sentence.speech || sentence.text);
     utter.rate = this.rate;
     utter.pitch = 1;
     if (this.voice) utter.voice = this.voice;
 
-    utter.onstart = () => this.onSentence(at);
-    utter.onend = () => {
+    // Rest before the next sentence rather than running them together. Faster
+    // reading shortens the rests too, the way it does for a person.
+    const advance = () => {
       if (!this.playing || this.index !== at) return;
       this.index = at + 1;
-      this.#tick();
+      const rest = (sentence.rest || 0) / Math.max(this.rate, 0.5);
+      this.resting = setTimeout(() => this.#tick(), rest);
     };
+
+    utter.onstart = () => this.onSentence(at);
+    utter.onend = advance;
     utter.onerror = event => {
       if (event.error === "interrupted" || event.error === "canceled") return;
-      if (!this.playing || this.index !== at) return;
-      this.index = at + 1;
-      this.#tick();
+      advance();
     };
 
     this.current = utter;
@@ -182,5 +210,7 @@ export class Speaker {
   #unguard() {
     if (this.keepalive) clearInterval(this.keepalive);
     this.keepalive = null;
+    if (this.resting) clearTimeout(this.resting);
+    this.resting = null;
   }
 }

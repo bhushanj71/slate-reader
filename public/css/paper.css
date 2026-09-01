@@ -90,6 +90,17 @@ body { overscroll-behavior: none; overflow: hidden; }
 
 [data-tone="night"] .device::after { mix-blend-mode: screen; opacity: .28; }
 
+/* Full screen: the book gets the whole display, with nothing around it. The
+   class does the work, so this holds on an iPhone too, where a page cannot ask
+   for real fullscreen at all. */
+.device.is-immersive,
+.device:fullscreen {
+  max-width: none;
+  border-inline: 0;
+}
+
+.device:fullscreen { height: 100vh; }
+
 /* ── Status bar ─────────────────────────────────────────────────── */
 
 .statusbar {

@@ -1,6 +1,7 @@
 import * as pdfjs from "/vendor/pdfjs/pdf.min.mjs";
 import { keepDrawingWhenHidden } from "/js/keep-drawing.js";
 import { splitSentences, Speaker } from "/js/tts.js";
+import { bestVoice } from "/js/speech-text.js";
 import {
   fingerprint, putDoc, getDoc, allDocs, removeDoc,
   getMarks, putMarks, saveCheckpoint, loadCheckpoint, savePrefs, loadPrefs
@@ -28,12 +29,16 @@ const el = {
   backBtn: $("backBtn"), prevBtn: $("prevBtn"), nextBtn: $("nextBtn"),
   pageInput: $("pageInput"), pageTotal: $("pageTotal"),
   playBtn: $("playBtn"), stopBtn: $("stopBtn"),
-  markBtn: $("markBtn"), marksBtn: $("marksBtn"), settingsBtn: $("settingsBtn"),
+  markBtn: $("markBtn"), marksBtn: $("marksBtn"), settingsBtn: $("settingsBtn"), fullBtn: $("fullBtn"),
   drawer: $("drawer"), drawerTitle: $("drawerTitle"), drawerBody: $("drawerBody"), drawerClose: $("drawerClose")
 };
 
 const prefs = Object.assign(
-  { tone: "paper", sharpen: 1, fit: "page", size: 1, spread: "auto", ghost: true, rate: 1, voiceURI: null },
+  {
+    tone: "paper", sharpen: 1, fit: "page", size: 1, spread: "auto", ghost: true,
+    // Slightly under a natural pace: PDF prose is denser than speech.
+    rate: 0.95, voiceURI: null, openFull: true
+  },
   loadPrefs()
 );
 
@@ -94,6 +99,7 @@ async function refreshShelf() {
 }
 
 async function openStored(id) {
+  if (prefs.openFull) openFullscreen();   // while the click still counts
   const row = await getDoc(id);
   if (!row) return note("That file is no longer on the shelf.");
   await load(await row.blob.arrayBuffer(), id, row.title);
@@ -105,6 +111,7 @@ async function takeFile(file) {
     return note("Slate reads PDFs only.");
   }
 
+  if (prefs.openFull) openFullscreen();
   note("Reading the file…");
   const title = file.name.replace(/\.pdf$/i, "");
 
@@ -297,6 +304,7 @@ async function buildLeafText(leaf, pageNo, token) {
   const spans = [];
   const frag = document.createDocumentFragment();
   let text = "";
+  let lastHeight = 0;
 
   for (const item of content.items) {
     if (typeof item.str !== "string" || !item.str.length) {
@@ -306,6 +314,13 @@ async function buildLeafText(leaf, pageNo, token) {
 
     const tx = pdfjs.Util.transform(leaf.viewport.transform, item.transform);
     const fontHeight = Math.hypot(tx[2], tx[3]);
+
+    // A jump in type size is a heading starting or ending. Nothing in the
+    // extracted string says so, but a person reading aloud pauses there, so
+    // mark it as a paragraph break for the sentence splitter to find.
+    const ratio = lastHeight ? fontHeight / lastHeight : 1;
+    if (ratio > 1.25 || ratio < 0.8) text += "\n\n";
+    lastHeight = fontHeight;
     const span = document.createElement("span");
     span.textContent = item.str;
     span.style.left = `${tx[4]}px`;
@@ -405,7 +420,7 @@ async function startListening(fromSentence) {
 
   await speaker.ready();
   speaker.rate = prefs.rate;
-  speaker.voice = speaker.voices().find(v => v.voiceURI === prefs.voiceURI) || null;
+  speaker.voice = chosenVoice();
 
   state.listening = true;
   el.playBtn.textContent = "Pause";
@@ -560,9 +575,17 @@ function openSettings() {
     slider("Size", 0.6, 2, 0.1, prefs.size, v => { prefs.size = v; applyPrefs(); reflow(); })
   );
 
+  body.append(
+    segmented("Open in", [[true, "Full screen"], [false, "Window"]],
+      Boolean(prefs.openFull), v => { prefs.openFull = v; applyPrefs(); openSettings(); })
+  );
+
   if (speaker) {
+    const automatic = bestVoice(speaker.voices());
     const pick = document.createElement("select");
-    pick.append(new Option("Browser default", ""));
+    pick.append(new Option(
+      automatic ? `Most human available — ${automatic.name}` : "Browser default", ""
+    ));
     speaker.voices().forEach(v => {
       const opt = new Option(`${v.name} — ${v.lang}`, v.voiceURI);
       opt.selected = v.voiceURI === prefs.voiceURI;
@@ -626,12 +649,58 @@ function segmented(label, options, current, onPick) {
   return field(label, wrap);
 }
 
+/** The chosen voice, or the most human one the browser offers. */
+function chosenVoice() {
+  if (!speaker) return null;
+  const voices = speaker.voices();
+  if (prefs.voiceURI) {
+    const picked = voices.find(v => v.voiceURI === prefs.voiceURI);
+    if (picked) return picked;
+  }
+  return bestVoice(voices);
+}
+
+/* ── Full screen ──────────────────────────────────────────────────── */
+
+function isFullscreen() { return Boolean(document.fullscreenElement); }
+
+/**
+ * Two layers, because the Fullscreen API cannot be relied on: an iPhone has no
+ * element fullscreen at all, and an embedded browser may refuse the request.
+ * The immersive class alone already gives the book the whole window; the API,
+ * where it is allowed, also takes the browser's own chrome away.
+ */
+function setImmersive(on) {
+  el.device.classList.toggle("is-immersive", on);
+  el.fullBtn.classList.toggle("is-on", on);
+  el.fullBtn.setAttribute("aria-pressed", String(on));
+  reflow();
+}
+
+/** Must be called while a click is still being handled, or the browser refuses. */
+function openFullscreen() {
+  setImmersive(true);
+  if (isFullscreen() || !el.device.requestFullscreen) return;
+  el.device.requestFullscreen({ navigationUI: "hide" }).catch(() => {
+    // Refused. The page fills the window regardless; nothing to report.
+  });
+}
+
+function toggleFullscreen() {
+  if (el.device.classList.contains("is-immersive")) {
+    setImmersive(false);
+    if (isFullscreen()) document.exitFullscreen().catch(() => {});
+  } else {
+    openFullscreen();
+  }
+}
+
 function applyPrefs() {
   el.device.dataset.tone = prefs.tone;
   el.device.style.setProperty("--sharpen", prefs.sharpen);
   if (speaker) {
     speaker.rate = prefs.rate;
-    speaker.voice = speaker.voices().find(v => v.voiceURI === prefs.voiceURI) || null;
+    speaker.voice = chosenVoice();
   }
   savePrefs(prefs);
 }
@@ -704,6 +773,11 @@ function wireUp() {
   });
   el.stopBtn.addEventListener("click", () => stopListening());
 
+  el.fullBtn.addEventListener("click", toggleFullscreen);
+  // Leaving fullscreen by any route (Esc, the browser's own control) should
+  // put the page back too.
+  document.addEventListener("fullscreenchange", () => setImmersive(isFullscreen()));
+
   el.markBtn.addEventListener("click", addMark);
   el.marksBtn.addEventListener("click", () => (drawerIs("Bookmarks") ? closeDrawer() : openMarks()));
   el.settingsBtn.addEventListener("click", () => (drawerIs("Panel") ? closeDrawer() : openSettings()));
@@ -726,6 +800,7 @@ function wireUp() {
       ArrowRight: () => turn(1), ArrowDown: () => turn(1), PageDown: () => turn(1), j: () => turn(1),
       ArrowLeft: () => turn(-1), ArrowUp: () => turn(-1), PageUp: () => turn(-1), k: () => turn(-1),
       b: addMark, B: addMark,
+      f: toggleFullscreen, F: toggleFullscreen,
       h: () => el.device.classList.toggle("is-bare"),
       Escape: closeDrawer,
       " ": () => (state.listening ? pauseListening() : startListening())
