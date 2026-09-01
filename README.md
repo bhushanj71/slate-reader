@@ -31,8 +31,9 @@ up the sentence being spoken, and always reopens on the line you stopped on.
   which is what makes this work on an iPhone, where a page cannot request fullscreen.
 - **Three panel tones** — Paper, Bleached, Night ink — plus sharpen, fit and text size.
 
-Files never leave the browser. PDFs are held in IndexedDB and checkpoints in
-localStorage on the reader's own device; the server only serves static assets.
+Your PDFs never leave the browser: they are held in IndexedDB and the checkpoints in
+localStorage, on the reader's own device. The server hands out static files, and — only
+if a key is configured — turns one sentence at a time into audio. It stores nothing.
 
 ## Running it locally
 
@@ -46,9 +47,10 @@ Then open http://localhost:3000.
 ## Deploying to Render
 
 Fastest route: **New → Blueprint**, pick this repository. Render reads
-`render.yaml` and creates a static site.
+`render.yaml` and creates a Node web service, then set `ELEVENLABS_API_KEY` in the
+dashboard if you want the studio voice.
 
-### As a static site (recommended)
+### As a static site (no server, no studio voice)
 
 Nothing here needs a server at runtime, and a static site on the free plan does
 not spin down between visits.
@@ -78,8 +80,9 @@ rather deploy a server, or plan to add an API later.
 | Start command | `npm start` |
 | Health check path | `/healthz` |
 
-It binds to `process.env.PORT`, which Render provides. No environment variables,
-database or disk are required either way.
+It binds to `process.env.PORT`, which Render provides. No database or disk is needed
+either way. The only environment variable that does anything is `ELEVENLABS_API_KEY`,
+and without it Slate simply reads in the browser's own voices.
 
 ## Keyboard
 
@@ -98,7 +101,32 @@ Rendering works anywhere pdf.js does. Reading aloud uses the Web Speech API — 
 in Chrome, Edge and Safari; Firefox needs a system speech service installed. Where no
 voices exist, the listening controls explain themselves and everything else still works.
 
-### Getting a better voice
+### The studio voice
+
+Slate can read in an ElevenLabs voice instead of the browser's. It appears in
+**Panel → Read by** only when the server has a key, so the static deployment
+simply never offers it.
+
+**The key stays on the server.** The browser asks `/api/voice/speak` for a
+sentence and gets back audio; it never sees the key. A key shipped in front-end
+code is readable by anyone who visits the page, which is the same as publishing
+it — so the studio voice requires the Node web service, not the static site.
+
+Set `ELEVENLABS_API_KEY` in the Render dashboard (never in the repository), or
+in a local `.env` — see `.env.example`, and note `.gitignore` excludes it.
+
+Because that endpoint spends real money on a public URL, it is bounded in four
+ways: 1200 characters per request, `ELEVENLABS_CALLER_LIMIT` per caller per hour
+(default 30k), `ELEVENLABS_DAILY_LIMIT` for everyone per day (default 150k), and
+identical sentences are served from a cache rather than bought twice. Only voices
+the account actually owns can be requested, so the endpoint cannot be used as an
+open proxy. If the budget runs out, the network drops, or the browser refuses to
+autoplay, the reading continues in the device voice from the same sentence.
+
+Reading a book this way is not free: a page of dense prose is roughly 2–3k
+characters.
+
+### Getting a better voice on the device
 
 How human it sounds depends on which voices the machine has, not on this app. Slate
 scores what the browser offers and picks the most natural, preferring neural voices and
@@ -110,12 +138,13 @@ can be chosen by hand under **Panel → Voice**.
 ## Layout
 
 ```
-server.js                 Express: serves public/, plus /healthz
+server.js                 Express: serves public/, /healthz, and the voice proxy
 public/index.html         The device
 public/css/paper.css      The panel: tokens, chrome, the leaf turn
 public/js/app.js          Rendering, paging, checkpoints, bookmarks, settings
 public/js/tts.js          Sentence splitting, the speech queue and its pauses
 public/js/speech-text.js  Typeset text turned into words a voice can say
+public/js/cloud-voice.js  Plays studio audio fetched a sentence at a time
 public/js/store.js        IndexedDB shelf + localStorage checkpoints
 public/js/keep-drawing.js Keeps pdf.js drawing while the tab is hidden
 public/vendor/            pdf.js, committed so public/ can be published as-is

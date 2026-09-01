@@ -2,6 +2,7 @@ import * as pdfjs from "/vendor/pdfjs/pdf.min.mjs";
 import { keepDrawingWhenHidden } from "/js/keep-drawing.js";
 import { splitSentences, Speaker } from "/js/tts.js";
 import { bestVoice } from "/js/speech-text.js";
+import { CloudSpeaker } from "/js/cloud-voice.js";
 import {
   fingerprint, putDoc, getDoc, allDocs, removeDoc,
   getMarks, putMarks, saveCheckpoint, loadCheckpoint, savePrefs, loadPrefs
@@ -37,12 +38,14 @@ const prefs = Object.assign(
   {
     tone: "paper", sharpen: 1, fit: "page", size: 1, spread: "auto", ghost: true,
     // Slightly under a natural pace: PDF prose is denser than speech.
-    rate: 0.95, voiceURI: null, openFull: true, flash: false
+    rate: 0.95, voiceURI: null, openFull: true, flash: false,
+    voiceSource: "device", cloudVoiceId: null
   },
   loadPrefs()
 );
 
 const speaker = Speaker.supported ? new Speaker() : null;
+const cloud = new CloudSpeaker();
 
 const state = {
   id: null,
@@ -59,6 +62,7 @@ const state = {
   spans: [],          // per leaf: { node, start, end }
   sentences: [],      // per leaf-tagged sentence: { start, end, text, leaf }
   cache: new Map(),
+  cloud: { available: false, voices: [] },
   lit: []
 };
 
@@ -471,13 +475,20 @@ function updateChrome() {
 
 /* ── Reading aloud ────────────────────────────────────────────────── */
 
+/** Whichever voice is doing the reading: the studio one, or the device's own. */
+function engine() {
+  return prefs.voiceSource === "cloud" && state.cloud.available ? cloud : speaker;
+}
+
 async function startListening(fromSentence) {
-  if (!speaker) return note("This browser has no speech voices.");
+  const voice = engine();
+  if (!voice) return note("This browser has no speech voices.");
   if (!state.sentences.length) return note("There is no readable text on this page.");
 
-  await speaker.ready();
-  speaker.rate = prefs.rate;
-  speaker.voice = chosenVoice();
+  await voice.ready();
+  voice.rate = prefs.rate;
+  if (voice === speaker) voice.voice = chosenVoice();
+  else voice.voiceId = prefs.cloudVoiceId || state.cloud.voices[0]?.id || null;
 
   state.listening = true;
   el.playBtn.textContent = "Pause";
@@ -485,33 +496,47 @@ async function startListening(fromSentence) {
   el.stopBtn.hidden = false;
   el.statusListening.hidden = false;
 
-  speaker.onSentence = i => {
+  voice.onSentence = i => {
     highlight(state.sentences[i]);
     checkpoint(i);
   };
-  speaker.onFinished = async () => {
+  voice.onFinished = async () => {
     if (!state.listening) return;
     const last = state.showing[state.showing.length - 1];
     if (last >= state.pages) return stopListening("You have reached the end.");
     await go(last + 1);
     if (!state.listening) return;
     if (state.sentences.length) {
-      speaker.load(state.sentences, 0);
-      speaker.start(0);
+      voice.load(state.sentences, 0);
+      voice.start(0);
     } else {
-      speaker.onFinished();   // a plate or a blank leaf: keep going
+      voice.onFinished();   // a plate or a blank leaf: keep going
     }
   };
 
+  // The studio voice can run out of budget, lose the network, or be refused
+  // autoplay. None of that should end the reading: hand over to the device.
+  if (voice === cloud) {
+    cloud.onTrouble = err => {
+      const resumeAt = cloud.index;
+      cloud.stop();
+      prefs.voiceSource = "device";
+      applyPrefs();
+      note(err?.message || "The studio voice stopped. Reading on in the device voice.");
+      startListening(resumeAt);
+    };
+  }
+
   const at = loadCheckpoint(state.id);
   const resume = fromSentence ?? (at && at.page === state.page ? at.sentence || 0 : 0);
-  speaker.load(state.sentences, resume);
-  speaker.start(resume);
+  voice.load(state.sentences, resume);
+  voice.start(resume);
 }
 
 function pauseListening() {
-  if (!speaker) return;
-  speaker.pause();
+  const voice = engine();
+  if (!voice) return;
+  voice.pause();
   state.listening = false;
   el.playBtn.textContent = "Resume";
   el.playBtn.classList.remove("is-on");
@@ -520,6 +545,7 @@ function pauseListening() {
 
 function stopListening(message) {
   if (speaker) speaker.stop();
+  if (cloud) cloud.stop();
   state.listening = false;
   el.playBtn.textContent = "Read aloud";
   el.playBtn.classList.remove("is-on");
@@ -639,7 +665,26 @@ function openSettings() {
       Boolean(prefs.openFull), v => { prefs.openFull = v; applyPrefs(); openSettings(); })
   );
 
-  if (speaker) {
+  // The studio voice only appears when the server has one to offer.
+  if (state.cloud.available) {
+    body.append(segmented("Read by", [["cloud", "Studio"], ["device", "This device"]],
+      prefs.voiceSource, v => { prefs.voiceSource = v; applyPrefs(); openSettings(); }));
+  }
+
+  if (prefs.voiceSource === "cloud" && state.cloud.available) {
+    const pick = document.createElement("select");
+    state.cloud.voices.forEach(v => {
+      const opt = new Option(v.name, v.id);
+      opt.selected = v.id === prefs.cloudVoiceId;
+      pick.append(opt);
+    });
+    pick.addEventListener("change", () => {
+      prefs.cloudVoiceId = pick.value;
+      applyPrefs();
+      if (state.listening) startListening(engine().index);
+    });
+    body.append(field("Studio voice", pick));
+  } else if (speaker) {
     const automatic = bestVoice(speaker.voices());
     const pick = document.createElement("select");
     pick.append(new Option(
@@ -653,17 +698,20 @@ function openSettings() {
     pick.addEventListener("change", () => {
       prefs.voiceURI = pick.value || null;
       applyPrefs();
-      if (state.listening) startListening(speaker.index);
+      if (state.listening) startListening(engine().index);
     });
-    body.append(
-      field("Voice", pick),
-      slider("Speed", 0.6, 1.8, 0.1, prefs.rate, v => {
-        prefs.rate = v;
-        applyPrefs();
-        if (state.listening) startListening(speaker.index);
-      })
-    );
-  } else {
+    body.append(field("Voice", pick));
+  }
+
+  if (speaker || state.cloud.available) {
+    body.append(slider("Speed", 0.6, 1.8, 0.1, prefs.rate, v => {
+      prefs.rate = v;
+      applyPrefs();
+      if (state.listening) startListening(engine().index);
+    }));
+  }
+
+  if (!speaker && !state.cloud.available) {
     const p = document.createElement("p");
     p.className = "empty";
     p.textContent = "This browser has no speech voices, so reading aloud is off.";
@@ -761,6 +809,8 @@ function applyPrefs() {
     speaker.rate = prefs.rate;
     speaker.voice = chosenVoice();
   }
+  cloud.rate = prefs.rate;
+  cloud.voiceId = prefs.cloudVoiceId || state.cloud.voices[0]?.id || null;
   savePrefs(prefs);
 }
 
@@ -828,7 +878,7 @@ function wireUp() {
 
   el.playBtn.addEventListener("click", () => {
     if (state.listening) pauseListening();
-    else startListening(speaker && speaker.queue === state.sentences ? speaker.index : undefined);
+    else startListening(engine() && engine().queue === state.sentences ? engine().index : undefined);
   });
   el.stopBtn.addEventListener("click", () => stopListening());
 
@@ -849,7 +899,7 @@ function wireUp() {
   });
 
   window.addEventListener("resize", debounce(reflow, 250));
-  window.addEventListener("pagehide", () => { checkpoint(); if (speaker) speaker.stop(); });
+  window.addEventListener("pagehide", () => { checkpoint(); stopListening(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) checkpoint(); });
 
   document.addEventListener("keydown", e => {
@@ -879,15 +929,15 @@ async function turnTo(n) {
   if (leftLeafFor(target) === state.page) return;
 
   const wasListening = state.listening;
-  if (wasListening && speaker) speaker.pause();
+  if (wasListening) engine().pause();
 
   await go(target);
 
   if (wasListening) {
     state.listening = true;
     if (state.sentences.length) {
-      speaker.load(state.sentences, 0);
-      speaker.start(0);
+      engine().load(state.sentences, 0);
+      engine().start(0);
     }
   }
 }
@@ -903,6 +953,14 @@ applyPrefs();
 wireUp();
 refreshShelf();
 if (speaker) speaker.ready();
+
+CloudSpeaker.probe().then(offer => {
+  state.cloud = offer;
+  if (!offer.available && prefs.voiceSource === "cloud") prefs.voiceSource = "device";
+  if (offer.available && !prefs.cloudVoiceId) prefs.cloudVoiceId = offer.voices[0]?.id || null;
+  applyPrefs();
+  if (drawerIs("Panel")) openSettings();
+});
 
 // Proof of life for the fallback in index.html. If an import above fails — most
 // likely the pdf.js files under /vendor — none of this module runs, every

@@ -1,13 +1,23 @@
-# Slate runs entirely in the browser and pdf.js is committed under
-# public/vendor, so the published folder needs nothing built. Point a static
-# host at public/ and it works.
+# A Node web service, because the studio voice needs somewhere to keep the
+# ElevenLabs key. The key is NEVER committed: set ELEVENLABS_API_KEY in the
+# Render dashboard, or in the service's Environment tab.
 #
-# The Express server in server.js serves the same folder and adds a health
-# check; it can be deployed as a Node web service instead — see the README.
+# Slate also runs as a plain static site with no server at all — pdf.js is
+# committed under public/vendor, so publishing that folder is enough. You lose
+# the studio voice and fall back to the browser's own voices. See the README.
 
 services:
   - type: web
     name: slate-reader
-    runtime: static
-    buildCommand: echo "No build step - public/ is ready to publish."
-    staticPublishPath: ./public
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ELEVENLABS_API_KEY
+        sync: false            # set in the dashboard; never stored in this file
+      - key: ELEVENLABS_DAILY_LIMIT
+        value: "150000"
