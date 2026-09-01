@@ -7,17 +7,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const pdfjs = path.join(__dirname, "node_modules", "pdfjs-dist");
-const immutable = { maxAge: "365d", immutable: true };
-
 app.disable("x-powered-by");
 app.use(compression());
 
-// pdf.js ships as ES modules plus font/cmap data the renderer fetches on demand.
-app.use("/vendor/pdfjs", express.static(path.join(pdfjs, "build"), immutable));
-app.use("/vendor/cmaps", express.static(path.join(pdfjs, "cmaps"), immutable));
-app.use("/vendor/standard_fonts", express.static(path.join(pdfjs, "standard_fonts"), immutable));
-
+// Everything the browser needs, pdf.js included, lives under public/ — see
+// tools/copy-vendor.mjs. This server therefore holds no secret knowledge that a
+// plain static host would lack, which is what keeps the two deployments honest.
 // Long-lived caching is right in production and maddening while editing.
 const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
 app.use(express.static(path.join(__dirname, "public"), { maxAge: isProd ? "1h" : 0, etag: true }));

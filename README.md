@@ -41,17 +41,15 @@ not spin down between visits.
 
 | Setting | Value |
 | --- | --- |
-| Build command | `npm ci && npm run build:static` |
+| Build command | *(none)* |
 | Publish directory | `public` |
 
-`npm run build:static` copies the three things pdf.js fetches at runtime — the
-library and its worker, the cmaps, and the standard fonts — out of
-`node_modules` and into `public/vendor`. **Without that build step the page
-loads but no PDF will ever render**, because `/vendor/*` is served from
-`node_modules` by the Express server, and a static host has no `node_modules`.
+`public/` is self-contained — pdf.js is committed under `public/vendor` — so
+there is nothing to build and nothing to install. If Render insists on a build
+command, `echo ok` will do.
 
-If Render shows **Not Found**, the publish directory is wrong. It must be
-`public`, the folder that holds `index.html` — not the repository root, and not
+If the host shows **Not Found**, the publish directory is wrong: it must be
+`public`, the folder holding `index.html`, not the repository root and not
 blank. Leave *Root Directory* empty unless the repository is nested.
 
 ### As a Node web service
@@ -87,10 +85,23 @@ voices exist, the listening controls explain themselves and everything else stil
 ## Layout
 
 ```
-server.js              Express: static assets, pdf.js vendor files, /healthz
-public/index.html      The device
-public/css/paper.css   The panel: tokens, chrome, refresh flash
-public/js/app.js       Rendering, paging, checkpoints, bookmarks, settings
-public/js/tts.js       Sentence splitting and the speech queue
-public/js/store.js     IndexedDB shelf + localStorage checkpoints
+server.js                 Express: serves public/, plus /healthz
+public/index.html         The device
+public/css/paper.css      The panel: tokens, chrome, refresh flash
+public/js/app.js          Rendering, paging, checkpoints, bookmarks, settings
+public/js/tts.js          Sentence splitting and the speech queue
+public/js/store.js        IndexedDB shelf + localStorage checkpoints
+public/js/keep-drawing.js Keeps pdf.js drawing while the tab is hidden
+public/vendor/            pdf.js, committed so public/ can be published as-is
+tools/copy-vendor.mjs     Refreshes public/vendor after a pdfjs-dist upgrade
 ```
+
+## Upgrading pdf.js
+
+```bash
+npm install pdfjs-dist@latest && npm run vendor
+```
+
+`npm run vendor` refreshes `public/vendor` from `node_modules`, taking only what
+the reader fetches: the minified library and worker, the cmaps, and the standard
+fonts. Commit the result — it is what gets published.

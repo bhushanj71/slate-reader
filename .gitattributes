@@ -1,0 +1,10 @@
+# Source is stored with LF regardless of the machine it was written on.
+* text=auto eol=lf
+
+# Vendored pdf.js is published byte-for-byte. Line-ending conversion would
+# quietly corrupt the character maps and the font programs.
+public/vendor/** -text
+*.bcmap binary
+*.pfb binary
+*.ttf binary
+*.pdf binary

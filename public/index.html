@@ -40,11 +40,11 @@
 
         <div class="fault" id="fault" hidden>
           <h2 class="rule-heading"><span>The reader did not start</span></h2>
-          <p>The controls on this page are inert because <code>/js/app.js</code> could not
-          load — almost always because pdf.js is missing from <code>/vendor</code>.</p>
-          <p>If this is a Render static site, its build command must be
-          <code>npm ci &amp;&amp; npm run build:static</code>, which copies pdf.js into the
-          published folder. Build with <code>npm ci</code> alone and you get exactly this page.</p>
+          <p>Every control on this page is inert: the script that runs the reader failed
+          to load, and a module that fails to load never runs at all.</p>
+          <p>Everything it needs sits beside this file in <code>public/</code>. On a static
+          host, check that the publish directory is <code>public</code> — the folder that
+          holds this page — and that <code>public/vendor</code> came with it.</p>
           <p class="fault__detail" id="faultDetail"></p>
         </div>
 
@@ -133,12 +133,22 @@
       if (document.documentElement.dataset.slateReady) return;
       var fault = document.getElementById("fault");
       var drop = document.getElementById("drop");
+      var detail = document.getElementById("faultDetail");
       if (!fault) return;
       fault.hidden = false;
       if (drop) drop.hidden = true;
-      if (missing.length) {
-        document.getElementById("faultDetail").textContent = "Failed to load: " + missing.join(", ");
-      }
+
+      // The browser blames the script element even when it was one of its
+      // imports that went missing, so name the file that is actually absent.
+      var probe = "/vendor/pdfjs/pdf.min.mjs";
+      fetch(probe, { method: "HEAD" }).then(function (res) {
+        detail.textContent = res.ok
+          ? "Loaded " + probe + " (" + res.status + "). The failure is elsewhere" +
+            (missing.length ? ": " + missing.join(", ") : "; see the browser console.")
+          : probe + " returned " + res.status + ". pdf.js is not being served.";
+      }).catch(function (err) {
+        detail.textContent = probe + " could not be fetched: " + err.message;
+      });
     }, 4000);
   })();
 </script>

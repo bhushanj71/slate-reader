@@ -1,16 +1,13 @@
-# Slate runs entirely in the browser, so the natural fit on Render is a static
-# site: nothing to keep awake, no cold start. The build step vendors pdf.js out
-# of node_modules and into the published folder.
+# Slate runs entirely in the browser and pdf.js is committed under
+# public/vendor, so the published folder needs nothing built. Point a static
+# host at public/ and it works.
 #
-# The Express server in server.js still runs the same app and can be deployed as
-# a Node web service instead — see the README.
+# The Express server in server.js serves the same folder and adds a health
+# check; it can be deployed as a Node web service instead — see the README.
 
 services:
   - type: web
     name: slate-reader
     runtime: static
-    buildCommand: npm ci && npm run build:static
+    buildCommand: echo "No build step - public/ is ready to publish."
     staticPublishPath: ./public
-    envVars:
-      - key: NODE_VERSION
-        value: "22"

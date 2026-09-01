@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "build:static": "node tools/copy-vendor.mjs"
+    "vendor": "node tools/copy-vendor.mjs"
   },
   "dependencies": {
     "compression": "^1.7.4",

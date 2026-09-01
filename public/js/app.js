@@ -1,4 +1,4 @@
-import * as pdfjs from "/vendor/pdfjs/pdf.mjs";
+import * as pdfjs from "/vendor/pdfjs/pdf.min.mjs";
 import { keepDrawingWhenHidden } from "/js/keep-drawing.js";
 import { splitSentences, Speaker } from "/js/tts.js";
 import {
@@ -6,7 +6,7 @@ import {
   getMarks, putMarks, saveCheckpoint, loadCheckpoint, savePrefs, loadPrefs
 } from "/js/store.js";
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.mjs";
 keepDrawingWhenHidden();
 
 const PDF_OPTS = {
