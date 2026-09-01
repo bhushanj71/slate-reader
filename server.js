@@ -46,7 +46,15 @@ async function voiceList() {
   const { voices } = await res.json();
   voiceCache = {
     at: Date.now(),
-    list: voices.map(v => ({ id: v.voice_id, name: v.name, preview: v.preview_url || null }))
+    list: voices.map(v => ({
+      id: v.voice_id,
+      name: v.name,
+      description: v.description || "",
+      labels: v.labels || {},
+      // ElevenLabs hosts a sample for each voice. It costs nothing to play, so
+      // a reader can hear a voice before spending anything on it.
+      preview: v.preview_url || null
+    }))
   };
   return voiceCache.list;
 }

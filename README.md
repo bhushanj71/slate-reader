@@ -104,9 +104,12 @@ voices exist, the listening controls explain themselves and everything else stil
 
 ### The studio voice
 
-Slate can read in an ElevenLabs voice instead of the browser's. It appears in
-**Panel → Read by** only when the server has a key, so the static deployment
-simply never offers it.
+Slate can read in an ElevenLabs voice instead of the browser's. When the server has a
+key it is offered under **Panel → Read by** and chosen by default, starting on a voice
+labelled for narration rather than whatever the API lists first. Every voice the account
+owns is listed there with its description and its accent, age and intended use, and each
+has a **Preview** — those samples come from ElevenLabs' own CDN, so listening costs
+nothing. Without a key the studio option never appears at all.
 
 **The key stays on the server.** The browser asks `/api/voice/speak` for a
 sentence and gets back audio; it never sees the key. A key shipped in front-end

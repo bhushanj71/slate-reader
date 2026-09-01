@@ -39,7 +39,8 @@ const prefs = Object.assign(
     tone: "paper", sharpen: 1, fit: "page", size: 1, spread: "auto", ghost: true,
     // Slightly under a natural pace: PDF prose is denser than speech.
     rate: 0.95, voiceURI: null, openFull: true, flash: false,
-    voiceSource: "device", cloudVoiceId: null
+    // Left unset until the server says whether a studio voice exists.
+    voiceSource: null, cloudVoiceId: null
   },
   loadPrefs()
 );
@@ -674,18 +675,7 @@ function openSettings() {
   }
 
   if (prefs.voiceSource === "cloud" && state.cloud.available) {
-    const pick = document.createElement("select");
-    state.cloud.voices.forEach(v => {
-      const opt = new Option(v.name, v.id);
-      opt.selected = v.id === prefs.cloudVoiceId;
-      pick.append(opt);
-    });
-    pick.addEventListener("change", () => {
-      prefs.cloudVoiceId = pick.value;
-      applyPrefs();
-      if (state.listening) startListening(engine().index);
-    });
-    body.append(field("Studio voice", pick));
+    body.append(voicePicker());
   } else if (speaker) {
     const automatic = bestVoice(speaker.voices());
     const pick = document.createElement("select");
@@ -725,6 +715,102 @@ function openSettings() {
 
 function reflow() {
   if (state.pdf && !el.reader.hidden) go(state.page, { turn: false });
+}
+
+/* ── Choosing a studio voice ──────────────────────────────────────── */
+
+const USE_CASE = {
+  narrative_story: "narration",
+  informative_educational: "informative",
+  entertainment_tv: "entertainment",
+  social_media: "social",
+  characters_animation: "characters",
+  conversational: "conversation",
+  advertisement: "advertising"
+};
+
+/** A voice meant for reading a book aloud belongs at the top of the list. */
+function narrationFirst(a, b) {
+  const rank = v => {
+    const use = v.labels?.use_case;
+    if (use === "narrative_story") return 0;
+    if (use === "informative_educational") return 1;
+    if (use === "conversational") return 2;
+    return 3;
+  };
+  return rank(a) - rank(b) || shortName(a).localeCompare(shortName(b));
+}
+
+function shortName(voice) {
+  return voice.name.split(" - ")[0].trim();
+}
+
+/** "British · middle aged · narration" — what the voice sounds like, in words. */
+function voiceTraits(voice) {
+  const { accent, age, use_case: use, gender } = voice.labels || {};
+  return [
+    accent && accent[0].toUpperCase() + accent.slice(1),
+    age && age.replace(/_/g, " "),
+    gender,
+    USE_CASE[use] || (use && use.replace(/_/g, " "))
+  ].filter(Boolean).join(" · ");
+}
+
+const sampler = new Audio();
+
+function voicePicker() {
+  const wrap = document.createElement("div");
+  const heading = document.createElement("p");
+  heading.className = "voicelist__lead";
+  heading.textContent = `${state.cloud.voices.length} voices. Listen to a sample before choosing; samples are free.`;
+
+  const list = document.createElement("ul");
+  list.className = "voicelist";
+
+  [...state.cloud.voices].sort(narrationFirst).forEach(voice => {
+    const chosen = voice.id === prefs.cloudVoiceId;
+    const li = document.createElement("li");
+
+    const choose = document.createElement("button");
+    choose.type = "button";
+    choose.className = "voice" + (chosen ? " is-chosen" : "");
+    choose.setAttribute("aria-pressed", String(chosen));
+    choose.innerHTML =
+      `<span class="voice__mark" aria-hidden="true"></span>` +
+      `<span class="voice__body"><span class="voice__name"></span>` +
+      `<span class="voice__note"></span><span class="voice__traits"></span></span>`;
+    choose.querySelector(".voice__mark").textContent = chosen ? "●" : "○";
+    choose.querySelector(".voice__name").textContent = shortName(voice);
+    choose.querySelector(".voice__note").textContent = voice.description || "";
+    choose.querySelector(".voice__traits").textContent = voiceTraits(voice);
+    choose.addEventListener("click", () => {
+      prefs.cloudVoiceId = voice.id;
+      applyPrefs();
+      openSettings();
+      if (state.listening) startListening(engine().index);
+    });
+
+    li.append(choose);
+
+    if (voice.preview) {
+      const hear = document.createElement("button");
+      hear.type = "button";
+      hear.className = "voice__try";
+      hear.textContent = "Preview";
+      hear.setAttribute("aria-label", `Hear a sample of ${shortName(voice)}`);
+      hear.addEventListener("click", () => {
+        sampler.pause();
+        sampler.src = voice.preview;
+        sampler.play().catch(() => note("That sample could not be played."));
+      });
+      li.append(hear);
+    }
+
+    list.append(li);
+  });
+
+  wrap.append(heading, list);
+  return wrap;
 }
 
 function field(label, control) {
@@ -958,8 +1044,11 @@ if (speaker) speaker.ready();
 
 CloudSpeaker.probe().then(offer => {
   state.cloud = offer;
-  if (!offer.available && prefs.voiceSource === "cloud") prefs.voiceSource = "device";
-  if (offer.available && !prefs.cloudVoiceId) prefs.cloudVoiceId = offer.voices[0]?.id || null;
+  if (!offer.available) prefs.voiceSource = "device";
+  else if (!prefs.voiceSource) prefs.voiceSource = "cloud";   // it is offered because it is better
+  if (offer.available && !prefs.cloudVoiceId) {
+    prefs.cloudVoiceId = [...offer.voices].sort(narrationFirst)[0]?.id || null;
+  }
   applyPrefs();
   if (drawerIs("Panel")) openSettings();
 });

@@ -622,6 +622,75 @@ body { overscroll-behavior: none; overflow: hidden; }
 .field input[type="range"] { accent-color: var(--accent); }
 .segmented { display: flex; gap: .35rem; flex: 1; flex-wrap: wrap; }
 
+/* ── Choosing a voice ───────────────────────────────────────────── */
+
+.voicelist__lead {
+  margin: .25rem 0 .75rem;
+  font-family: var(--sans);
+  font-size: .8125rem;
+  color: var(--ink-2);
+}
+
+.voicelist { margin: 0; padding: 0; list-style: none; }
+
+.voicelist li {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.voice {
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: .7rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The mark carries the choice; weight reinforces it. No colour is involved. */
+.voice__mark { flex: 0 0 auto; width: 1em; font-size: .7em; line-height: 2.4; color: var(--accent); }
+.voice__body { display: flex; flex-direction: column; min-width: 0; }
+
+.voice__name { font-size: 1rem; line-height: 1.4; }
+.voice.is-chosen .voice__name { font-weight: 600; }
+
+.voice__note,
+.voice__traits {
+  font-family: var(--sans);
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.voice__traits { margin-top: .1rem; letter-spacing: .01em; }
+.voice:hover .voice__name { text-decoration: underline; text-underline-offset: .2em; }
+
+.voice__try {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: 2rem;
+  padding: .35rem .7rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: .75rem;
+  cursor: pointer;
+  transition: background var(--quick) linear;
+}
+
+.voice__try:hover { background: var(--paper-muted); }
+
 .marklist { margin: 0; padding: 0; list-style: none; }
 
 .marklist li {
