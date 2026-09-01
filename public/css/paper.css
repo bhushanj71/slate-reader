@@ -1,45 +1,52 @@
 /* ── Slate ────────────────────────────────────────────────────────────
-   A simulated electrophoretic panel. Rules of the house:
-   no colour, no shadows, no radius, no motion except the refresh flash. */
+   Drawn from a photograph of a real electrophoretic panel: true black on a
+   cool grey-white, heavy grotesque capitals, monospace everywhere else, line
+   work with one stroke weight. A panel has no mid-greys — where a grey is
+   wanted, the pixels are dithered instead. */
 
 :root {
-  --bezel: #d7d4cd;
-  --paper: #f1efea;
-  --paper-lit: #f8f7f3;
-  --ink: #22211d;
-  --ink-soft: #56544c;
-  --ink-faint: #8e8b81;
-  --rule: #c7c3b9;
-  --canvas-filter: grayscale(1) contrast(1.04) brightness(1.01);
+  --bezel: #cbcbc6;
+  --paper: #e9e9e5;
+  --paper-lit: #f3f3f0;
+  --ink: #0a0a09;
+  --ink-soft: #23231f;
+  --ink-faint: #56564f;
+  --rule: #0a0a09;
+  --rule-soft: #a9a9a2;
+  --canvas-filter: grayscale(1) contrast(1.12) brightness(1.02);
   --sharpen: 1;
 
-  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --serif: "Literata", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  /* A 50% grey the only way a panel can make one. */
+  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 2px 2px;
 
-  --rail-h: 3.25rem;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --display: "Archivo Black", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+
   --status-h: 2.25rem;
 }
 
 [data-tone="bleached"] {
-  --bezel: #cfcfcf;
-  --paper: #fbfbfa;
+  --bezel: #c2c2c2;
+  --paper: #fdfdfc;
   --paper-lit: #ffffff;
-  --ink: #16160f;
-  --ink-soft: #4a4a44;
-  --ink-faint: #86867e;
-  --rule: #d3d3cd;
-  --canvas-filter: grayscale(1) contrast(1.18) brightness(1.03);
+  --ink: #000000;
+  --ink-soft: #141412;
+  --ink-faint: #4a4a45;
+  --rule: #000000;
+  --rule-soft: #b4b4ae;
+  --canvas-filter: grayscale(1) contrast(1.28) brightness(1.04);
 }
 
 [data-tone="night"] {
-  --bezel: #0e0e10;
-  --paper: #1b1b1d;
-  --paper-lit: #232325;
-  --ink: #d2cfc7;
-  --ink-soft: #9d9a92;
-  --ink-faint: #6d6b64;
-  --rule: #3a3a3d;
-  --canvas-filter: grayscale(1) contrast(1.02) invert(1) brightness(0.92);
+  --bezel: #060606;
+  --paper: #0d0d0c;
+  --paper-lit: #151513;
+  --ink: #e8e8e3;
+  --ink-soft: #cfcfc9;
+  --ink-faint: #8a8a83;
+  --rule: #e8e8e3;
+  --rule-soft: #45453f;
+  --canvas-filter: grayscale(1) contrast(1.08) invert(1) brightness(0.9);
 }
 
 * { box-sizing: border-box; }
@@ -53,16 +60,15 @@ html, body {
   height: 100%;
   background: var(--bezel);
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--mono);
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 /* The panel is exactly the screen and never scrolls as a page; what scrolls is
    the shelf or the stage inside it, the way a device does it. */
 body { overscroll-behavior: none; overflow: hidden; }
 
-/* The panel itself, held in a bezel. */
 .device {
   position: relative;
   display: flex;
@@ -83,12 +89,12 @@ body { overscroll-behavior: none; overflow: hidden; }
   inset: 0;
   z-index: 40;
   pointer-events: none;
-  opacity: .5;
+  opacity: .35;
   mix-blend-mode: multiply;
   background-image: url("/img/grain.svg");
 }
 
-[data-tone="night"] .device::after { mix-blend-mode: screen; opacity: .28; }
+[data-tone="night"] .device::after { mix-blend-mode: screen; opacity: .22; }
 
 /* Full screen: the book gets the whole display, with nothing around it. The
    class does the work, so this holds on an iPhone too, where a page cannot ask
@@ -108,17 +114,17 @@ body { overscroll-behavior: none; overflow: hidden; }
   align-items: center;
   gap: 1rem;
   height: var(--status-h);
-  padding-inline: clamp(.85rem, 3vw, 1.6rem);
+  padding-inline: clamp(.8rem, 3vw, 1.5rem);
   border-bottom: 1px solid var(--rule);
-  font-family: var(--mono);
   font-size: .625rem;
-  letter-spacing: .2em;
+  font-weight: 600;
+  letter-spacing: .18em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink);
   flex: 0 0 auto;
 }
 
-.mark { color: var(--ink); letter-spacing: .34em; }
+.mark { font-family: var(--display); letter-spacing: .22em; }
 
 .statusbar__doc {
   flex: 1;
@@ -127,25 +133,26 @@ body { overscroll-behavior: none; overflow: hidden; }
   white-space: nowrap;
   text-overflow: ellipsis;
   text-align: center;
+  font-weight: 400;
   letter-spacing: .12em;
 }
 
-.statusbar__right { display: flex; gap: .6rem; align-items: center; }
+.statusbar__right { display: flex; gap: .7rem; align-items: center; }
 
 .chip { white-space: nowrap; }
 
 .chip--live::before {
   content: "";
   display: inline-block;
-  width: .42em;
-  height: .42em;
+  width: .5em;
+  height: .5em;
   margin-right: .5em;
   background: var(--ink);
   vertical-align: middle;
   animation: pulse 1.6s steps(2, end) infinite;
 }
 
-@keyframes pulse { 50% { opacity: .15; } }
+@keyframes pulse { 50% { opacity: 0; } }
 
 /* ── Panel body ─────────────────────────────────────────────────── */
 
@@ -154,45 +161,43 @@ body { overscroll-behavior: none; overflow: hidden; }
 .shelf { flex: 1; overflow-y: auto; }
 
 .shelf__inner {
-  max-width: 42rem;
+  max-width: 44rem;
   margin-inline: auto;
-  padding: clamp(2.5rem, 8vw, 5rem) clamp(1.25rem, 5vw, 2rem) 4rem;
+  padding: clamp(2rem, 7vw, 4rem) clamp(1.25rem, 5vw, 2rem) 4rem;
 }
 
 .masthead {
   margin: 0;
-  font-size: clamp(2.5rem, 8vw, 4.25rem);
-  font-weight: 600;
-  line-height: .96;
-  letter-spacing: -.025em;
+  font-family: var(--display);
+  font-size: clamp(2.4rem, 9vw, 4.5rem);
+  font-weight: 400;
+  line-height: .92;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
 }
 
-.masthead em { font-style: italic; font-weight: 400; color: var(--ink-soft); }
-
 .lede {
-  max-width: 44ch;
+  max-width: 58ch;
   margin: 1.75rem 0 0;
-  font-size: 1.0625rem;
-  line-height: 1.7;
+  font-size: .8125rem;
+  line-height: 1.85;
   color: var(--ink-soft);
 }
 
 .drop {
   margin-top: 2.5rem;
   padding: 2rem 1.5rem;
-  border: 1px dashed var(--rule);
+  border: 1px solid var(--rule);
   text-align: center;
   cursor: pointer;
-  transition: background .12s linear;
 }
 
-.drop.is-over { background: var(--paper-lit); border-style: solid; border-color: var(--ink); }
+.drop.is-over { background: var(--dither); }
 
 .drop__hint {
   margin: .9rem 0 0;
-  font-family: var(--mono);
-  font-size: .6875rem;
-  letter-spacing: .12em;
+  font-size: .625rem;
+  letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
@@ -201,39 +206,30 @@ body { overscroll-behavior: none; overflow: hidden; }
 .fault {
   margin-top: 2.5rem;
   padding: 1.5rem;
-  border: 1px solid var(--ink);
-  font-size: .95rem;
-  line-height: 1.65;
+  border: 1px solid var(--rule);
+  font-size: .8125rem;
+  line-height: 1.8;
   color: var(--ink-soft);
 }
 
-.fault .rule-heading { color: var(--ink); }
 .fault p { margin: 0 0 .75rem; }
 .fault p:last-child { margin-bottom: 0; }
+.fault code { font-weight: 600; background: var(--paper-lit); padding: .05em .3em; }
+.fault__detail { font-size: .6875rem; color: var(--ink-faint); word-break: break-all; }
 
-.fault code {
-  font-family: var(--mono);
-  font-size: .8em;
-  padding: .1em .35em;
-  border: 1px solid var(--rule);
-  background: var(--paper-lit);
-}
-
-.fault__detail { font-family: var(--mono); font-size: .7rem; color: var(--ink-faint); word-break: break-all; }
-
-/* ── Table of contents, with leaders ────────────────────────────── */
+/* ── Section headings ───────────────────────────────────────────── */
 
 .rule-heading {
   display: flex;
   align-items: center;
   gap: .9rem;
   margin: 0 0 1rem;
-  font-family: var(--mono);
-  font-size: .625rem;
-  font-weight: 500;
-  letter-spacing: .24em;
+  font-family: var(--display);
+  font-size: .6875rem;
+  font-weight: 400;
+  letter-spacing: .18em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink);
 }
 
 .rule-heading::after {
@@ -245,8 +241,7 @@ body { overscroll-behavior: none; overflow: hidden; }
 .contents { margin-top: 3rem; }
 
 .toc { margin: 0; padding: 0; list-style: none; }
-
-.toc li { display: flex; align-items: baseline; }
+.toc li { display: flex; align-items: baseline; border-bottom: 1px solid var(--rule-soft); }
 
 .toc__row {
   display: flex;
@@ -254,7 +249,7 @@ body { overscroll-behavior: none; overflow: hidden; }
   flex: 1;
   min-width: 0;
   gap: .55rem;
-  padding: .7rem 0;
+  padding: .75rem 0;
   border: 0;
   background: none;
   color: inherit;
@@ -263,26 +258,24 @@ body { overscroll-behavior: none; overflow: hidden; }
   cursor: pointer;
 }
 
-.toc li { border-bottom: 1px solid var(--rule); }
-
 .toc__row:hover .toc__title,
-.toc__row:focus-visible .toc__title { text-decoration: underline; text-underline-offset: .22em; }
+.toc__row:focus-visible .toc__title { text-decoration: underline; text-underline-offset: .25em; }
 
 .toc__title {
-  font-size: 1.0625rem;
+  font-size: .875rem;
+  font-weight: 500;
   max-width: 60%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.toc__leader { flex: 1; border-bottom: 1px dotted var(--rule); transform: translateY(-.28em); }
+.toc__leader { flex: 1; border-bottom: 1px dotted var(--rule-soft); transform: translateY(-.3em); }
 
 .toc__meta {
-  font-family: var(--mono);
   font-size: .6875rem;
-  letter-spacing: .08em;
-  color: var(--ink-faint);
+  letter-spacing: .06em;
+  color: var(--ink-soft);
   white-space: nowrap;
 }
 
@@ -291,8 +284,8 @@ body { overscroll-behavior: none; overflow: hidden; }
   background: none;
   padding: .2rem .35rem;
   margin-left: .35rem;
-  font-family: var(--mono);
-  font-size: .6875rem;
+  font: inherit;
+  font-size: .625rem;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -306,24 +299,26 @@ body { overscroll-behavior: none; overflow: hidden; }
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1.25rem;
   margin: 3rem 0 0;
   padding-top: 1.25rem;
   border-top: 1px solid var(--rule);
-  font-family: var(--mono);
-  font-size: .6875rem;
-  color: var(--ink-faint);
+  font-size: .625rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
-.legend div { display: flex; align-items: center; gap: .55rem; }
-.legend dt { border: 1px solid var(--rule); padding: .1rem .4rem; color: var(--ink-soft); }
-.legend dd { margin: 0; letter-spacing: .06em; }
+.legend div { display: flex; align-items: center; gap: .5rem; }
+.legend dt { border: 1px solid var(--rule); padding: .15rem .4rem; font-weight: 600; }
+.legend dd { margin: 0; }
 
 /* ── Reader ─────────────────────────────────────────────────────── */
 
 .reader { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .reader__stage {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -357,31 +352,62 @@ body { overscroll-behavior: none; overflow: hidden; }
   position: absolute;
   inset: 0;
   z-index: 2;
-  opacity: .055;
+  opacity: .05;
   pointer-events: none;
   filter: none;
+  transition: opacity 320ms linear;
 }
 
-[data-tone="night"] .leaf canvas.ghost { opacity: .09; }
+[data-tone="night"] .leaf canvas.ghost { opacity: .08; }
 
-/* The strip along the foot of the panel, the way a reader always has one. */
-.progress {
+/* ── Turning a leaf ─────────────────────────────────────────────────
+   A copy of the spread, laid over the new one while it is drawn, then turned
+   out of the way. Nothing blank is ever on screen between two pages. */
+
+.turnover {
+  position: absolute;
+  z-index: 6;
   display: flex;
-  align-items: center;
-  gap: .8rem;
-  padding: .5rem clamp(.85rem, 3vw, 1.6rem);
-  border-top: 1px solid var(--rule);
-  font-family: var(--mono);
-  font-size: .625rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  flex: 0 0 auto;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  pointer-events: none;
+  perspective: 2400px;
+  transform-style: preserve-3d;
 }
 
-.progress__track { flex: 1; height: 1px; background: var(--rule); }
-.progress__fill { display: block; height: 3px; margin-top: -1px; background: var(--ink); }
-.progress__label, .progress__pct { white-space: nowrap; }
+.turnover canvas {
+  display: block;
+  backface-visibility: hidden;
+  transform-origin: left center;
+  filter: var(--canvas-filter) contrast(var(--sharpen));
+  will-change: transform, opacity;
+}
+
+.turnover canvas.is-turning {
+  animation: leaf-turn 460ms cubic-bezier(.32, .04, .28, 1) forwards;
+}
+
+.turnover canvas.is-turning-back {
+  transform-origin: right center;
+  animation: leaf-turn-back 460ms cubic-bezier(.32, .04, .28, 1) forwards;
+}
+
+.turnover canvas.is-settling { animation: leaf-settle 300ms ease-out forwards; }
+
+@keyframes leaf-turn {
+  0%   { transform: rotateY(0deg); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: rotateY(-124deg); opacity: 0; }
+}
+
+@keyframes leaf-turn-back {
+  0%   { transform: rotateY(0deg); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: rotateY(124deg); opacity: 0; }
+}
+
+@keyframes leaf-settle { to { opacity: 0; } }
 
 .textlayer {
   position: absolute;
@@ -398,10 +424,10 @@ body { overscroll-behavior: none; overflow: hidden; }
   cursor: text;
 }
 
-.textlayer span::selection { background: rgba(34, 33, 29, .22); }
+.textlayer span::selection { background: rgba(10, 10, 9, .25); }
 
 /* The spoken line inverts, the way a real panel inverts a selection. */
-.textlayer span.lit { background: rgba(34, 33, 29, .18); }
+.textlayer span.lit { background: rgba(10, 10, 9, .2); }
 
 @supports (mix-blend-mode: difference) {
   .textlayer span.lit { background: #fff; mix-blend-mode: difference; }
@@ -439,12 +465,37 @@ body { overscroll-behavior: none; overflow: hidden; }
   top: 1rem;
   margin: 0;
   text-align: center;
-  font-family: var(--mono);
   font-size: .625rem;
-  letter-spacing: .24em;
+  font-weight: 600;
+  letter-spacing: .22em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
+
+/* The strip along the foot of the panel, the way a reader always has one. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .5rem clamp(.8rem, 3vw, 1.5rem);
+  border-top: 1px solid var(--rule);
+  font-size: .625rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  flex: 0 0 auto;
+}
+
+.progress__track {
+  flex: 1;
+  height: 6px;
+  border: 1px solid var(--rule);
+  background: var(--dither);
+}
+
+.progress__fill { display: block; height: 100%; background: var(--ink); }
+.progress__label, .progress__pct { white-space: nowrap; }
 
 /* ── Controls ───────────────────────────────────────────────────── */
 
@@ -454,42 +505,39 @@ body { overscroll-behavior: none; overflow: hidden; }
   align-items: center;
   justify-content: space-between;
   gap: .5rem 1rem;
-  min-height: var(--rail-h);
-  padding: .5rem clamp(.75rem, 3vw, 1.6rem);
+  padding: .55rem clamp(.8rem, 3vw, 1.5rem);
   border-top: 1px solid var(--rule);
   background: var(--paper);
   flex: 0 0 auto;
 }
 
-.rail__group { display: flex; align-items: center; gap: .4rem; }
+.rail__group { display: flex; align-items: center; gap: .35rem; }
 
 .btn {
   padding: .45rem .7rem;
   border: 1px solid var(--rule);
   background: transparent;
-  color: var(--ink-soft);
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: .6875rem;
-  font-weight: 500;
-  letter-spacing: .14em;
+  font-size: .625rem;
+  font-weight: 600;
+  letter-spacing: .12em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background .1s linear, color .1s linear, border-color .1s linear;
 }
 
-.btn:hover { border-color: var(--ink); color: var(--ink); }
+.btn:hover { background: var(--dither); }
+.btn:active, .btn.is-on { background: var(--ink); color: var(--paper); }
 
-.btn:active, .btn.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-
-.btn--primary { border-color: var(--ink); color: var(--ink); }
+.btn--primary { border-width: 2px; padding: calc(.45rem - 1px) calc(.7rem - 1px); }
 
 .btn--ghost { border-color: transparent; }
 
-.btn[disabled] { opacity: .35; cursor: default; }
-.btn[disabled]:hover { border-color: var(--rule); color: var(--ink-soft); }
+.btn[disabled] { color: var(--ink-faint); border-color: var(--rule-soft); cursor: default; }
+.btn[disabled]:hover { background: transparent; }
 
 :where(button, input, select, a):focus-visible {
-  outline: 2px dotted var(--ink);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
@@ -497,9 +545,8 @@ body { overscroll-behavior: none; overflow: hidden; }
   display: flex;
   align-items: baseline;
   gap: .3rem;
-  font-family: var(--mono);
-  font-size: .6875rem;
-  color: var(--ink-faint);
+  font-size: .625rem;
+  color: var(--ink-soft);
 }
 
 .pagejump input {
@@ -509,6 +556,7 @@ body { overscroll-behavior: none; overflow: hidden; }
   background: transparent;
   color: var(--ink);
   font: inherit;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -524,7 +572,7 @@ body { overscroll-behavior: none; overflow: hidden; }
   flex-direction: column;
   padding: 1rem clamp(1rem, 4vw, 2rem) 1.25rem;
   background: var(--paper);
-  border-top: 1px solid var(--ink);
+  border-top: 2px solid var(--rule);
 }
 
 .drawer__head { display: flex; align-items: center; gap: 1rem; }
@@ -536,12 +584,12 @@ body { overscroll-behavior: none; overflow: hidden; }
   align-items: center;
   gap: .9rem;
   padding: .7rem 0;
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--mono);
-  font-size: .6875rem;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: .625rem;
+  font-weight: 500;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
 }
 
 .field > span:first-child { width: 6.5rem; flex: 0 0 auto; }
@@ -552,13 +600,12 @@ body { overscroll-behavior: none; overflow: hidden; }
   border: 1px solid var(--rule);
   background: transparent;
   color: var(--ink);
-  font-family: var(--mono);
-  font-size: .6875rem;
+  font: inherit;
 }
 
 .field input[type="range"] { accent-color: var(--ink); }
 
-.segmented { display: flex; gap: .3rem; flex: 1; }
+.segmented { display: flex; gap: .3rem; flex: 1; flex-wrap: wrap; }
 
 .marklist { margin: 0; padding: 0; list-style: none; }
 
@@ -567,7 +614,7 @@ body { overscroll-behavior: none; overflow: hidden; }
   align-items: baseline;
   gap: .6rem;
   padding: .65rem 0;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule-soft);
 }
 
 .marklist button.mark-open {
@@ -577,25 +624,28 @@ body { overscroll-behavior: none; overflow: hidden; }
   padding: 0;
   background: none;
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: .95rem;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
   text-align: left;
   cursor: pointer;
 }
 
-.marklist .mark-page {
-  font-family: var(--mono);
+.mark-snip {
+  display: block;
+  margin-top: .3rem;
+  font-weight: 400;
   font-size: .6875rem;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink-faint);
-  white-space: nowrap;
 }
 
-.mark-snip { display: block; color: var(--ink-faint); font-size: .8125rem; margin-top: .15rem; }
-
 .empty {
-  font-family: var(--mono);
   font-size: .6875rem;
-  letter-spacing: .1em;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--ink-faint);
   padding: 1rem 0;
@@ -607,19 +657,19 @@ body { overscroll-behavior: none; overflow: hidden; }
   position: absolute;
   z-index: 35;
   left: 50%;
-  bottom: 2.75rem;                 /* inside the panel: clears the progress strip,
-                                      and never depends on how tall the rail is */
+  bottom: 2.75rem;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: .8rem;
   max-width: calc(100% - 2rem);
-  padding: .55rem .85rem;
+  padding: .6rem .9rem;
   background: var(--ink);
   color: var(--paper);
-  font-family: var(--mono);
-  font-size: .6875rem;
-  letter-spacing: .08em;
+  font-size: .625rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
 }
 
 .toast button {
@@ -627,13 +677,15 @@ body { overscroll-behavior: none; overflow: hidden; }
   background: none;
   color: var(--paper);
   font: inherit;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  padding: .2rem .45rem;
+  font-weight: 600;
+  padding: .25rem .5rem;
   cursor: pointer;
 }
 
-/* The signature: a panel refresh between pages. */
+.toast button:hover { background: var(--paper); color: var(--ink); }
+
+/* The hard refresh a panel does when it clears itself completely. Off by
+   default: the leaf turn reads better, and the two together fight. */
 .flash {
   position: absolute;
   inset: 0;
@@ -653,6 +705,10 @@ body { overscroll-behavior: none; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .flash.is-on { animation: none; }
   .chip--live::before { animation: none; }
+  .turnover canvas.is-turning,
+  .turnover canvas.is-turning-back,
+  .turnover canvas.is-settling { animation: leaf-settle 1ms linear forwards; }
+  .leaf canvas.ghost { transition: none; }
 }
 
 @media (max-width: 40rem) {

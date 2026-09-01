@@ -37,7 +37,7 @@ const prefs = Object.assign(
   {
     tone: "paper", sharpen: 1, fit: "page", size: 1, spread: "auto", ghost: true,
     // Slightly under a natural pace: PDF prose is denser than speech.
-    rate: 0.95, voiceURI: null, openFull: true
+    rate: 0.95, voiceURI: null, openFull: true, flash: false
   },
   loadPrefs()
 );
@@ -165,7 +165,7 @@ async function load(buffer, id, title) {
 
   const at = loadCheckpoint(id);
   const resumeTo = at && at.page > 1 ? at.page : 1;
-  await go(resumeTo, { flash: false, ghost: false, scrollTop: at?.scrollTop });
+  await go(resumeTo, { turn: false, scrollTop: at?.scrollTop });
 
   if (resumeTo > 1) note(`Picked up at page ${resumeTo}.`, "Start over", () => go(1));
 }
@@ -209,25 +209,30 @@ function cancelRenders() {
   state.tasks = [];
 }
 
-async function go(n, { flash = true, ghost = true, scrollTop = 0 } = {}) {
+async function go(n, { turn = true, scrollTop = 0 } = {}) {
   if (!state.pdf) return;
 
   state.twoUp = twoUpWanted();
   const left = leftLeafFor(Math.min(Math.max(Math.round(n) || 1, 1), state.pages));
   const numbers = leavesOpenAt(left);
+  const direction = left >= state.page ? 1 : -1;
   state.page = left;
   state.showing = numbers;
 
   const token = ++state.renderToken;
   cancelRenders();
-  el.spinner.hidden = false;
   updateChrome();
 
+  // The copy of the outgoing spread covers the rebuild, so no blank frame is
+  // ever shown; it is turned away once the new leaves have been drawn.
+  const outgoing = turn ? liftSpread() : null;
+  if (!outgoing) el.spinner.hidden = false;
+
   const pages = await Promise.all(numbers.map(p => state.pdf.getPage(p)));
-  if (token !== state.renderToken) return;
+  if (token !== state.renderToken) return dropSpread(outgoing);
 
   const scale = scaleFor(pages);
-  const residue = ghost && prefs.ghost ? captureLeaves() : [];
+  const residue = turn && prefs.ghost ? captureLeaves() : [];
 
   const leaves = pages.map(page => {
     const viewport = page.getViewport({ scale });
@@ -260,24 +265,25 @@ async function go(n, { flash = true, ghost = true, scrollTop = 0 } = {}) {
       await task.promise;
     } catch (err) {
       if (err?.name !== "RenderingCancelledException") console.error(err);
-      return;
+      return dropSpread(outgoing);
     }
-    if (token !== state.renderToken) return;
+    if (token !== state.renderToken) return dropSpread(outgoing);
   }
 
   state.spans = [];
   state.sentences = [];
   for (let i = 0; i < leaves.length; i++) {
     const { spans, sentences } = await buildLeafText(leaves[i], numbers[i], token);
-    if (token !== state.renderToken) return;
+    if (token !== state.renderToken) return dropSpread(outgoing);
     state.spans.push(spans);
     sentences.forEach(s => state.sentences.push({ ...s, leaf: i }));
   }
 
   el.spinner.hidden = true;
   el.stage.scrollTop = scrollTop || 0;
+  turnSpread(outgoing, direction);
   if (residue.length) layGhosts(leaves, residue);
-  if (flash) refreshFlash();
+  if (turn && prefs.flash) refreshFlash();
   checkpoint();
 }
 
@@ -360,6 +366,57 @@ function sentencesFor(pageNo, text) {
 }
 
 /* ── Panel artifacts: the refresh flash and its ghost ─────────────── */
+
+/**
+ * Copy the spread that is on screen and lay the copy exactly over it, so the
+ * page underneath can be torn down and redrawn behind it. Returns null when
+ * there is nothing on screen yet.
+ */
+function liftSpread() {
+  const sources = [...el.spread.querySelectorAll("canvas:not(.ghost)")];
+  if (!sources.length) return null;
+
+  const spread = el.spread.getBoundingClientRect();
+  const stage = el.stage.getBoundingClientRect();
+
+  const copy = document.createElement("div");
+  copy.className = "turnover";
+  copy.style.left = `${spread.left - stage.left + el.stage.scrollLeft}px`;
+  copy.style.top = `${spread.top - stage.top + el.stage.scrollTop}px`;
+
+  for (const source of sources) {
+    const sheet = document.createElement("canvas");
+    sheet.width = source.width;
+    sheet.height = source.height;
+    sheet.style.width = source.style.width;
+    sheet.style.height = source.style.height;
+    sheet.getContext("2d").drawImage(source, 0, 0);
+    copy.append(sheet);
+  }
+
+  el.stage.append(copy);
+  return copy;
+}
+
+/** Turn the lifted copy away: the leading leaf pivots on the spine, the other
+ *  settles out beneath it. */
+function turnSpread(copy, direction) {
+  if (!copy) return;
+  const sheets = [...copy.children];
+  const leading = direction >= 0 ? sheets[sheets.length - 1] : sheets[0];
+
+  for (const sheet of sheets) {
+    if (sheet === leading) sheet.classList.add(direction >= 0 ? "is-turning" : "is-turning-back");
+    else sheet.classList.add("is-settling");
+  }
+
+  leading.addEventListener("animationend", () => copy.remove(), { once: true });
+  setTimeout(() => copy.remove(), 700);   // in case the animation never runs
+}
+
+function dropSpread(copy) {
+  if (copy) copy.remove();
+}
 
 function refreshFlash() {
   el.flash.classList.remove("is-on");
@@ -571,6 +628,8 @@ function openSettings() {
       prefs.fit, v => { prefs.fit = v; applyPrefs(); openSettings(); reflow(); }),
     segmented("Ghosting", [[true, "On"], [false, "Off"]],
       prefs.ghost, v => { prefs.ghost = v; applyPrefs(); openSettings(); }),
+    segmented("Refresh flash", [[false, "Off"], [true, "On"]],
+      Boolean(prefs.flash), v => { prefs.flash = v; applyPrefs(); openSettings(); }),
     slider("Sharpen", 0.85, 1.6, 0.05, prefs.sharpen, v => { prefs.sharpen = v; applyPrefs(); }),
     slider("Size", 0.6, 2, 0.1, prefs.size, v => { prefs.size = v; applyPrefs(); reflow(); })
   );
@@ -615,7 +674,7 @@ function openSettings() {
 }
 
 function reflow() {
-  if (state.pdf && !el.reader.hidden) go(state.page, { flash: false, ghost: false });
+  if (state.pdf && !el.reader.hidden) go(state.page, { turn: false });
 }
 
 function field(label, control) {
