@@ -38,6 +38,16 @@
           <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
         </div>
 
+        <div class="fault" id="fault" hidden>
+          <h2 class="rule-heading"><span>The reader did not start</span></h2>
+          <p>The controls on this page are inert because <code>/js/app.js</code> could not
+          load — almost always because pdf.js is missing from <code>/vendor</code>.</p>
+          <p>If this is a Render static site, its build command must be
+          <code>npm ci &amp;&amp; npm run build:static</code>, which copies pdf.js into the
+          published folder. Build with <code>npm ci</code> alone and you get exactly this page.</p>
+          <p class="fault__detail" id="faultDetail"></p>
+        </div>
+
         <div class="contents" id="contents" hidden>
           <h2 class="rule-heading"><span>On the shelf</span></h2>
           <ol class="toc" id="tocList"></ol>
@@ -108,5 +118,29 @@
 </div>
 
 <script type="module" src="/js/app.js"></script>
+<script>
+  // A module whose import fails never runs, so every control stays silently
+  // dead. Watch for that and say so, rather than leaving a page that looks
+  // finished and does nothing.
+  (function () {
+    var missing = [];
+    addEventListener("error", function (e) {
+      var url = e.target && (e.target.src || e.target.href);
+      if (url) missing.push(url);
+    }, true);
+
+    setTimeout(function () {
+      if (document.documentElement.dataset.slateReady) return;
+      var fault = document.getElementById("fault");
+      var drop = document.getElementById("drop");
+      if (!fault) return;
+      fault.hidden = false;
+      if (drop) drop.hidden = true;
+      if (missing.length) {
+        document.getElementById("faultDetail").textContent = "Failed to load: " + missing.join(", ");
+      }
+    }, 4000);
+  })();
+</script>
 </body>
 </html>

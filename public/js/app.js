@@ -104,10 +104,27 @@ async function takeFile(file) {
   if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
     return note("Slate reads PDFs only.");
   }
+
   note("Reading the file…");
-  const { id, buf } = await fingerprint(file);
   const title = file.name.replace(/\.pdf$/i, "");
-  await putDoc({ id, title, size: file.size, blob: file, openedAt: Date.now(), pages: 0 });
+
+  let id, buf;
+  try {
+    ({ id, buf } = await fingerprint(file));
+  } catch (err) {
+    console.error(err);
+    return note("That file could not be read from disk.");
+  }
+
+  // Shelving is a convenience; a document that will not fit in storage should
+  // still open for reading right now.
+  try {
+    await putDoc({ id, title, size: file.size, blob: file, openedAt: Date.now(), pages: 0 });
+  } catch (err) {
+    console.error(err);
+    note("Opened, but there was no room to keep it on the shelf.");
+  }
+
   await load(buf, id, title);
 }
 
@@ -649,9 +666,14 @@ function note(text, actionLabel, action) {
 
 function wireUp() {
   el.openBtn.addEventListener("click", () => el.fileInput.click());
+  // The whole dashed panel is a target, not just the button inside it.
+  el.drop.addEventListener("click", e => {
+    if (e.target !== el.openBtn) el.fileInput.click();
+  });
   el.fileInput.addEventListener("change", () => {
-    takeFile(el.fileInput.files[0]);
-    el.fileInput.value = "";
+    const [file] = el.fileInput.files;
+    el.fileInput.value = "";        // so choosing the same file twice still fires
+    takeFile(file);
   });
 
   ["dragenter", "dragover"].forEach(type =>
@@ -747,3 +769,14 @@ applyPrefs();
 wireUp();
 refreshShelf();
 if (speaker) speaker.ready();
+
+// Proof of life for the fallback in index.html. If an import above fails — most
+// likely the pdf.js files under /vendor — none of this module runs, every
+// control is inert, and the page gives no sign of it. This flag is how the page
+// knows the difference between "working" and "never started".
+document.documentElement.dataset.slateReady = "1";
+
+// A slow network can trip that fallback before this module arrives. Arriving
+// late is not the same as failing, so put the page back.
+$("fault").hidden = true;
+$("drop").hidden = false;

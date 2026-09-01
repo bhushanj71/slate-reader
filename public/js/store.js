@@ -35,9 +35,34 @@ function run(store, mode, fn) {
  *  a different folder still finds its checkpoint. */
 export async function fingerprint(file) {
   const buf = await file.arrayBuffer();
+  // crypto.subtle exists only in a secure context. Served over plain http from
+  // a LAN address it is simply missing, and a reader should still open there.
+  const id = globalThis.crypto?.subtle
+    ? await sha256(buf)
+    : sampledHash(buf, file.size);
+  return { id, buf };
+}
+
+async function sha256(buf) {
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  const hex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
-  return { id: hex.slice(0, 32), buf };
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+/** FNV-1a over the head and tail of the file plus its length. Not a checksum —
+ *  just enough to tell one document on the shelf from another. */
+function sampledHash(buf, size) {
+  const bytes = new Uint8Array(buf);
+  const window = 262144;
+  const head = bytes.subarray(0, window);
+  const tail = bytes.subarray(Math.max(bytes.length - window, 0));
+  let hash = 0x811c9dc5;
+  for (const chunk of [head, tail]) {
+    for (let i = 0; i < chunk.length; i++) {
+      hash ^= chunk[i];
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+  }
+  return `s${hash.toString(16)}${size.toString(16)}`;
 }
 
 export function putDoc(doc) {
